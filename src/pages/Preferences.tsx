@@ -65,7 +65,7 @@ export default function Preferences() {
         };
       }
     } catch {
-      /* ignore */
+      localStorage.removeItem(storageKey);
     }
     return { prefs: freshPrefs(), step: 0, restored: false };
   });
@@ -82,7 +82,6 @@ export default function Preferences() {
     [state, identity],
   );
 
-  // autosave restore notice
   useEffect(() => {
     if (restored) toast.success('Welcome back — pick up where you left off');
   }, [restored]);
@@ -146,7 +145,6 @@ export default function Preferences() {
   };
 
   const skipFlexible = () => {
-    // accept defaults for this screen and jump to review
     go(STEPS.length - 1);
   };
 

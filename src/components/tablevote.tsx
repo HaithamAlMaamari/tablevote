@@ -1,4 +1,3 @@
-// TableVote shared UI kit.
 import { motion } from 'framer-motion';
 import { ArrowLeft, Check, Crown, Loader2 } from 'lucide-react';
 import type { ReactNode } from 'react';

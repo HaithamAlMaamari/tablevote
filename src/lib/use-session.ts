@@ -1,4 +1,3 @@
-// Session hook: attaches to transport, keeps live snapshot, exposes identity.
 import { useEffect, useState } from 'react';
 import type { SessionErrorCode, SessionIssue, SessionSnapshot } from '@shared/types';
 import { getTransport, type Transport } from './transport';

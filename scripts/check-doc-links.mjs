@@ -1,51 +1,62 @@
-import { access, readdir, readFile } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
+import { access, readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 const root = process.cwd();
-const ignoredDirectories = new Set([
-  '.git',
-  'dist',
-  'dist-server',
-  'node_modules',
-  'playwright-report',
-  'test-results',
-]);
-
-async function markdownFiles(directory) {
-  const entries = await readdir(directory, { withFileTypes: true });
-  const files = [];
-  for (const entry of entries) {
-    if (entry.isDirectory()) {
-      if (!ignoredDirectories.has(entry.name)) {
-        files.push(...(await markdownFiles(path.join(directory, entry.name))));
-      }
-    } else if (entry.isFile() && entry.name.endsWith('.md')) {
-      files.push(path.join(directory, entry.name));
-    }
-  }
-  return files;
-}
+const markdownFiles = execFileSync('git', ['ls-files', '-z', '--', '*.md'], { encoding: 'utf8' })
+  .split('\0')
+  .filter(Boolean)
+  .map((file) => path.resolve(root, file));
 
 function localTarget(rawTarget) {
   let target = rawTarget.trim();
   if (target.startsWith('<') && target.endsWith('>')) target = target.slice(1, -1);
   target = target.replace(/\s+["'][^"']*["']$/, '');
-  if (!target || target.startsWith('#') || target.startsWith('/')) return null;
+  if (!target || target.startsWith('/')) return null;
   if (/^[a-z][a-z\d+.-]*:/i.test(target)) return null;
-  const pathOnly = target.split(/[?#]/, 1)[0];
-  if (!pathOnly) return null;
+  const [pathOnly, fragment = ''] = target.split('#', 2);
   try {
-    return decodeURIComponent(pathOnly);
+    return { path: decodeURIComponent(pathOnly), fragment: decodeURIComponent(fragment).toLowerCase() };
   } catch {
-    return pathOnly;
+    return { path: pathOnly, fragment: fragment.toLowerCase() };
   }
 }
+
+function headingAnchors(markdown) {
+  const anchors = new Set();
+  const occurrences = new Map();
+  let fenced = false;
+  for (const line of markdown.split(/\r?\n/)) {
+    if (/^\s*```/.test(line)) {
+      fenced = !fenced;
+      continue;
+    }
+    if (fenced) continue;
+    const heading = line.match(/^\s{0,3}#{1,6}\s+(.+?)\s*#*\s*$/)?.[1];
+    if (!heading) continue;
+    const base = heading
+      .replace(/<[^>]*>/g, '')
+      .replace(/!?\[([^\]]*)]\([^)]*\)/g, '$1')
+      .replace(/[`*_~]/g, '')
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}\s-]/gu, '')
+      .trim()
+      .replace(/\s+/g, '-');
+    const count = occurrences.get(base) ?? 0;
+    occurrences.set(base, count + 1);
+    anchors.add(count === 0 ? base : `${base}-${count}`);
+  }
+  return anchors;
+}
+
+const documents = new Map();
+for (const file of markdownFiles) documents.set(file, await readFile(file, 'utf8'));
 
 const failures = [];
 let checkedLinks = 0;
 
-for (const file of await markdownFiles(root)) {
-  const lines = (await readFile(file, 'utf8')).split(/\r?\n/);
+for (const file of markdownFiles) {
+  const lines = documents.get(file).split(/\r?\n/);
   let fenced = false;
   for (const [index, line] of lines.entries()) {
     if (/^\s*```/.test(line)) {
@@ -57,11 +68,18 @@ for (const file of await markdownFiles(root)) {
       const target = localTarget(match[1]);
       if (!target) continue;
       checkedLinks += 1;
-      const resolved = path.resolve(path.dirname(file), target);
+      const resolved = target.path ? path.resolve(path.dirname(file), target.path) : file;
       try {
         await access(resolved);
       } catch {
         failures.push(`${path.relative(root, file)}:${index + 1} -> ${match[1]}`);
+        continue;
+      }
+      if (target.fragment && path.extname(resolved).toLowerCase() === '.md') {
+        const markdown = documents.get(resolved) ?? (await readFile(resolved, 'utf8'));
+        if (!headingAnchors(markdown).has(target.fragment)) {
+          failures.push(`${path.relative(root, file)}:${index + 1} -> missing anchor #${target.fragment}`);
+        }
       }
     }
   }

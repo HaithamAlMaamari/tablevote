@@ -12,7 +12,7 @@ const forbiddenDirectories = [
   'playwright-report/',
   'test-results/',
 ];
-const forbiddenExtensions = /\.(?:cer|crt|db|key|log|p12|pem|pfx|sqlite|sqlite3)$/i;
+const forbiddenExtensions = /\.(?:cer|crt|db|key|log|p12|pem|pfx|sarif|sqlite|sqlite3)$/i;
 const privateKeyNames = /(^|\/)(?:id_dsa|id_ecdsa|id_ed25519|id_rsa)$/;
 
 const forbiddenFiles = trackedFiles.filter((file) => {

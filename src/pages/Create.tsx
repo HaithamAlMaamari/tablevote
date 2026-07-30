@@ -95,7 +95,7 @@ export default function Create() {
             transition={{ delay: 0.1 }}
             className="mt-2 text-[15px] text-ink-muted"
           >
-            Label this table's area for the invitation. This portfolio demo always uses a fictional bundled catalog.
+            The area appears in the invitation. Ranking uses bundled fixtures and does not query nearby venues.
           </motion.p>
         </motion.div>
         {issue && <SessionIssueAlert issue={issue} />}
@@ -142,7 +142,7 @@ export default function Create() {
             ))}
           </div>
           <p className="mt-3 text-[13px] font-semibold text-ink-faint">
-            This radius demonstrates the planned input but does not filter fictional fixtures.
+            The radius is saved with the session but does not filter bundled fixtures.
           </p>
         </div>
 

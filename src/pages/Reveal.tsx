@@ -6,10 +6,10 @@ import confetti from 'canvas-confetti';
 import { useSession } from '@/lib/use-session';
 import { SessionStateScreen } from '@/components/session-state';
 import { cuisineCode } from '@/lib/cuisine-marks';
+import { EASE_POP } from '@/lib/motion';
 
 const CONFETTI_COLORS = ['#EF3340', '#2457FF', '#C7F43D', '#FCFDF8'];
 const EASE_SUSPENSE = [0.65, 0, 0.35, 1] as const;
-const EASE_POP = [0.34, 1.56, 0.64, 1] as const;
 
 function fireConfetti() {
   confetti({
@@ -154,7 +154,7 @@ export default function Reveal() {
         : 'A thoughtful compromise, shaped by everyone’s private ballots.';
   const caption =
     result.tiebreak !== 'none'
-      ? "It's a tie — broken by the fairness ladder!"
+      ? 'A near tie used the documented tie-break sequence.'
       : `${votes} votes counted. ${top3.length} finalists. 1 winner.`;
 
   return (
@@ -173,7 +173,6 @@ export default function Reveal() {
         className="relative flex origin-center scale-[0.52] items-end justify-center gap-4 min-[350px]:scale-[0.58] min-[380px]:scale-[0.64] min-[430px]:scale-[0.72] min-[480px]:scale-[0.78]"
         style={{ perspective: 900 }}
       >
-        {/* 3rd place */}
         {third && (
           <motion.div
             data-testid="reveal-finalist"
@@ -189,7 +188,6 @@ export default function Reveal() {
           </motion.div>
         )}
 
-        {/* winner */}
         <div data-testid="reveal-finalist" className="relative">
           {phase >= 2 && (
             <motion.div
@@ -245,7 +243,6 @@ export default function Reveal() {
           </motion.div>
         </div>
 
-        {/* 2nd place */}
         {second && (
           <motion.div
             data-testid="reveal-finalist"
@@ -273,7 +270,7 @@ export default function Reveal() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.02 }}
               >
-                {ch === ' ' ? ' ' : ch}
+                {ch === ' ' ? '\u00A0' : ch}
               </motion.span>
             ))}
           </p>
@@ -283,7 +280,7 @@ export default function Reveal() {
             transition={{ delay: 0.6 }}
             className="mx-auto mt-3 max-w-[290px] text-[14px] font-medium leading-relaxed text-ticket/75"
           >
-            {decisionSummary} Simulated dietary fixture filters stayed enforced.
+            {decisionSummary} Required simulated dietary tags remained enforced.
           </motion.p>
         </div>
       )}
