@@ -8,8 +8,10 @@ import { AvatarDot, Btn, CtaBar, ScreenShell, TopBar } from '@/components/tablev
 import { SessionIssueAlert } from '@/components/session-state';
 import { EASE_POP } from '@/lib/motion';
 import { toSessionIssue } from '@/lib/session-errors';
-import { getTransport, linkSessionReferences, saveIdentity } from '@/lib/transport';
+import { getTransport } from '@/lib/transport';
+import { linkSessionReferences, saveIdentity } from '@/lib/identity';
 import { inviteContext, inviteHeading } from '@/lib/invite';
+import { sessionPhaseRoute } from '@/lib/session-routing';
 
 export default function Join() {
   const { code: codeParam } = useParams();
@@ -18,7 +20,10 @@ export default function Join() {
 
 function JoinForm({ codeParam }: { codeParam?: string }) {
   const nav = useNavigate();
-  const routeCode = (codeParam ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5);
+  const routeCode = (codeParam ?? '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .slice(0, 5);
   const [tiles, setTiles] = useState<string[]>(() => {
     const c = routeCode;
     return [c[0] ?? '', c[1] ?? '', c[2] ?? '', c[3] ?? '', c[4] ?? ''];
@@ -45,13 +50,15 @@ function JoinForm({ codeParam }: { codeParam?: string }) {
       .then((transport) => transport.invite(routeCode))
       .then((result) => {
         if (!active) return;
-        if (result.invite) setInvite(result.invite);
-        else if (result.error) setIssue(toSessionIssue(result.error, result.errorCode));
+        if (result.ok) setInvite(result.value.invite);
+        else setIssue(toSessionIssue(result.error, result.errorCode));
       })
       .catch(() => {
         if (active) setIssue(toSessionIssue('Server unavailable', 'unavailable'));
       });
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [needCode, routeCode]);
 
   const setTile = (i: number, v: string) => {
@@ -78,7 +85,7 @@ function JoinForm({ codeParam }: { codeParam?: string }) {
     try {
       const t = await getTransport();
       const res = await t.join({ code, nickname: nickname.trim().slice(0, 14), color });
-      if (res.error || !res.state) {
+      if (!res.ok) {
         setJoining(false);
         const failure = toSessionIssue(res.error, res.errorCode);
         setIssue(failure);
@@ -88,18 +95,23 @@ function JoinForm({ codeParam }: { codeParam?: string }) {
         toast.error(failure.message);
         return;
       }
+      const value = res.value;
       const identity = {
-        participantId: res.participantId, token: res.participantToken,
-        nickname: nickname.trim(), color, isHost: false, expiresAt: res.state.expiresAt,
+        participantId: value.participantId,
+        token: value.participantToken,
+        nickname: nickname.trim(),
+        color,
+        isHost: false,
+        expiresAt: value.state.expiresAt,
       };
-      saveIdentity(res.state.id, identity);
-      saveIdentity(res.state.code, identity);
-      linkSessionReferences(res.state.code, res.state.id);
+      saveIdentity(value.state.id, identity);
+      saveIdentity(value.state.code, identity);
+      linkSessionReferences(value.state.code, value.state.id);
+      const joinedState = value.state;
       if (!needCode) setTileState('ok');
       const wait = Math.max(0, 400 - (Date.now() - t0));
       setTimeout(() => {
-        if (res.state.phase !== 'collecting') nav(`/s/${res.state.code}/result`);
-        else nav(`/s/${res.state.code}/preferences`);
+        nav(sessionPhaseRoute(joinedState.phase, joinedState.code, 'joining')!);
       }, wait);
     } catch {
       setJoining(false);
@@ -113,24 +125,28 @@ function JoinForm({ codeParam }: { codeParam?: string }) {
       <TopBar label="Join session" backTo="/" />
       <div className="flex flex-1 flex-col justify-center px-5 pb-40 sm:px-6" style={{ minHeight: '60dvh' }}>
         <motion.div
-          initial={{ scale: 0.92, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+          initial={{ scale: 0.92, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
           transition={{ duration: 0.4, ease: EASE_POP }}
-          className="rounded-[20px] border border-clay-line bg-paper p-5 text-center shadow-card"
+          className="ticket-panel p-5 text-center"
         >
-          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-terracotta-tint text-terracotta">
+          <span className="mx-auto flex h-14 w-14 rotate-2 items-center justify-center border-2 border-rule bg-signal text-ticket shadow-[3px_3px_0_#2457FF]">
             <UtensilsCrossed size={28} strokeWidth={1.75} />
           </span>
           <h1 className="mt-3 font-display text-[24px] font-semibold tracking-[-0.01em] text-ink">
             {invite ? inviteHeading(invite) : "You're invited to choose where to eat."}
           </h1>
-          <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">
+          <p className="mt-2 text-[15px] leading-relaxed text-ink-muted">
             {invite
-              ? invite.joinable ? inviteContext : 'Voting has already closed for this table.'
+              ? invite.joinable
+                ? inviteContext
+                : 'Voting has already closed for this table.'
               : 'Add your private preferences so the group can find one shared recommendation. No account needed.'}
           </p>
           {invite?.joinable && (
             <p className="mt-2 text-[12px] font-semibold text-ink-faint">
-              This invitation expires {new Date(invite.expiresAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}.
+              This invitation expires{' '}
+              {new Date(invite.expiresAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}.
             </p>
           )}
         </motion.div>
@@ -138,7 +154,7 @@ function JoinForm({ codeParam }: { codeParam?: string }) {
 
         {needCode && (
           <fieldset className="mt-8">
-            <legend className="block w-full text-center text-[13px] font-semibold uppercase tracking-[0.01em] text-ink-soft">Session code</legend>
+            <legend className="ticket-label block w-full text-center">Session code</legend>
             <motion.div
               animate={tileState === 'bad' ? { x: [0, -6, 6, -6, 6, 0] } : {}}
               transition={{ duration: 0.3 }}
@@ -147,7 +163,9 @@ function JoinForm({ codeParam }: { codeParam?: string }) {
               {tiles.map((ch, i) => (
                 <input
                   key={i}
-                  ref={(el) => { inputsRef.current[i] = el; }}
+                  ref={(el) => {
+                    inputsRef.current[i] = el;
+                  }}
                   value={ch}
                   maxLength={5}
                   inputMode="text"
@@ -155,9 +173,9 @@ function JoinForm({ codeParam }: { codeParam?: string }) {
                   onKeyDown={(e) => {
                     if (e.key === 'Backspace' && !ch && i > 0) inputsRef.current[i - 1]?.focus();
                   }}
-                  className={`h-[52px] w-11 rounded-lg border bg-butter-tint text-center font-sans text-[24px] font-extrabold uppercase text-ink caret-terracotta outline-none transition-colors duration-200 ${
-                    tileState === 'ok' ? 'border-olive' : tileState === 'bad' ? 'border-tomato' : 'border-butter/40'
-                  } focus:border-terracotta`}
+                  className={`h-[52px] w-11 border-2 bg-acid text-center font-mono text-[22px] font-medium uppercase text-ink caret-signal outline-none transition-colors duration-200 ${
+                    tileState === 'ok' ? 'border-electric' : tileState === 'bad' ? 'border-danger' : 'border-rule'
+                  } focus:ring-2 focus:ring-electric focus:ring-offset-2`}
                   aria-label={`Code character ${i + 1}`}
                   aria-invalid={tileState === 'bad'}
                   aria-describedby={tileState === 'bad' ? 'code-error' : undefined}
@@ -165,13 +183,17 @@ function JoinForm({ codeParam }: { codeParam?: string }) {
               ))}
             </motion.div>
             {tileState === 'bad' && (
-              <p id="code-error" role="alert" className="mt-2 text-center text-[13px] font-semibold text-tomato">Hmm, that code doesn't exist.</p>
+              <p id="code-error" role="alert" className="mt-2 text-center text-[13px] font-semibold text-danger">
+                Hmm, that code doesn't exist.
+              </p>
             )}
           </fieldset>
         )}
 
         <div className="mt-8">
-          <label htmlFor="nick" className="text-[13px] font-semibold uppercase tracking-[0.01em] text-ink-soft">What should we call you?</label>
+          <label htmlFor="nick" className="ticket-label">
+            What should we call you?
+          </label>
           <div className="mt-3 flex items-center gap-3">
             <AvatarDot nickname={nickname || '?'} color={color} size={44} />
             <input
@@ -181,7 +203,7 @@ function JoinForm({ codeParam }: { codeParam?: string }) {
               onChange={(e) => setNickname(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && join()}
               placeholder="e.g. Maya"
-              className="h-[52px] flex-1 rounded-xl border border-clay-line bg-paper px-4 text-[15px] text-ink outline-none placeholder:text-ink-faint focus:border-terracotta focus:ring-2 focus:ring-terracotta/30"
+              className="h-[52px] min-w-0 flex-1 border-2 border-rule bg-ticket px-4 text-[15px] text-ink outline-none placeholder:text-ink-faint focus:ring-2 focus:ring-electric focus:ring-offset-2"
             />
           </div>
           <div className="mt-3 flex items-center gap-2">
@@ -195,12 +217,14 @@ function JoinForm({ codeParam }: { codeParam?: string }) {
                 aria-label={`Color ${i + 1}`}
                 aria-pressed={color === i}
                 type="button"
-                className={`h-11 w-11 rounded-full border-2 ${color === i ? 'border-ink' : 'border-transparent'}`}
+                className={`h-11 w-11 border-2 ${color === i ? 'border-ink shadow-[3px_3px_0_#2457FF]' : 'border-transparent'}`}
                 style={{ backgroundColor: c.bg }}
               >
-                {color === i
-                  ? <Check aria-hidden size={20} className="mx-auto" style={{ color: c.fg }} />
-                  : <span className="mx-auto block h-4 w-4 rounded-full" style={{ backgroundColor: c.fg }} />}
+                {color === i ? (
+                  <Check aria-hidden size={20} className="mx-auto" style={{ color: c.fg }} />
+                ) : (
+                  <span className="mx-auto block h-4 w-4 rounded-full" style={{ backgroundColor: c.fg }} />
+                )}
               </motion.button>
             ))}
           </div>
@@ -212,8 +236,21 @@ function JoinForm({ codeParam }: { codeParam?: string }) {
         <p className="mb-2 flex items-center justify-center gap-1 text-center text-[13px] font-semibold text-ink-faint">
           <Lock size={12} /> No account. Your raw ballot is hidden from the host and other participants.
         </p>
-        <Btn className="w-full" disabled={!nickname.trim() || code.length < 5 || invite?.joinable === false} loading={joining} onClick={join}>
-          {invite?.joinable === false ? 'Voting is closed' : joining ? 'Pulling up a chair…' : <>Join the table <ArrowRight size={18} /></>}
+        <Btn
+          className="w-full"
+          disabled={!nickname.trim() || code.length < 5 || invite?.joinable === false}
+          loading={joining}
+          onClick={join}
+        >
+          {invite?.joinable === false ? (
+            'Voting is closed'
+          ) : joining ? (
+            'Pulling up a chair…'
+          ) : (
+            <>
+              Join the table <ArrowRight size={18} />
+            </>
+          )}
         </Btn>
       </CtaBar>
     </ScreenShell>

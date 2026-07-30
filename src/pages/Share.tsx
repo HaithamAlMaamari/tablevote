@@ -6,14 +6,22 @@ import QRCode from 'qrcode';
 import { toast } from 'sonner';
 import type { InviteSnapshot } from '@shared/types';
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { AvatarDot, Btn, CodeTiles, CtaBar, FadeUp, LiveBadge, ModeBadge, ScreenShell, TopBar } from '@/components/tablevote';
+import { AvatarDot, Btn, CodeTiles, CtaBar, FadeUp, LiveBadge, ScreenShell, TopBar } from '@/components/tablevote';
 import { EASE_POP } from '@/lib/motion';
 import { useSession } from '@/lib/use-session';
 import { SessionStateScreen } from '@/components/session-state';
 import { inviteMessage } from '@/lib/invite';
+import { useSessionPhaseNavigation } from '@/lib/session-routing';
 
 export default function Share() {
   const { code = '' } = useParams();
@@ -36,14 +44,17 @@ export default function Share() {
     if (!transport || !sessionCode) return;
     let active = true;
     transport.invite(sessionCode).then((result) => {
-      if (active && result.invite) setInvite(result.invite);
+      if (active && result.ok) setInvite(result.value.invite);
     });
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [transport, sessionCode]);
 
   useEffect(() => {
-    QRCode.toDataURL(joinUrl, { margin: 1, width: 400, color: { dark: '#2B2420', light: '#FFFDF8' } })
-      .then(setQr).catch(() => {});
+    QRCode.toDataURL(joinUrl, { margin: 1, width: 400, color: { dark: '#241329', light: '#FCFDF8' } })
+      .then(setQr)
+      .catch(() => {});
   }, [joinUrl]);
 
   // toast + animate on new joiners
@@ -51,16 +62,12 @@ export default function Share() {
     const n = state?.participants.length ?? 0;
     if (prevCount.current && n > prevCount.current) {
       const newest = state?.participants[n - 1];
-      if (newest && !newest.isHost) toast.success(`${newest.nickname} joined 🎉`);
+      if (newest && !newest.isHost) toast.success(`${newest.nickname} joined the table.`);
     }
     prevCount.current = n;
   }, [state?.participants]);
 
-  // revealed → everyone moves on
-  useEffect(() => {
-    if (state?.phase === 'revealed') nav(`/s/${state.code}/reveal`);
-    if (state?.phase === 'blocked-no-match') nav(`/s/${state.code}/result`);
-  }, [state?.phase, state?.code, nav]);
+  useSessionPhaseNavigation(state, 'passive');
 
   const copyLink = async () => {
     try {
@@ -109,9 +116,12 @@ export default function Share() {
   const total = state?.participants.length ?? 0;
   const online = state?.participants.filter((participant) => participant.online).length ?? 0;
   const locking = state?.phase === 'locking';
-  const guestsSubmitted = (state?.participants.filter((p) => p.submitted && !p.isHost).length ?? 0) + (identity ? 0 : 0);
-  const meSubmitted = state && identity ? state.participants.find((p) => p.id === identity.participantId)?.submitted : false;
-  const canReveal = state?.phase === 'collecting' && submitted >= 2 && (guestsSubmitted >= 1 || meSubmitted === true) && total >= 2;
+  const guestsSubmitted =
+    (state?.participants.filter((p) => p.submitted && !p.isHost).length ?? 0) + (identity ? 0 : 0);
+  const meSubmitted =
+    state && identity ? state.participants.find((p) => p.id === identity.participantId)?.submitted : false;
+  const canReveal =
+    state?.phase === 'collecting' && submitted >= 2 && (guestsSubmitted >= 1 || meSubmitted === true) && total >= 2;
 
   if (!state && error) return <SessionStateScreen error={error} code={code} onRetry={refresh} />;
 
@@ -119,65 +129,94 @@ export default function Share() {
     <ScreenShell>
       <TopBar
         label="Invite friends"
-        right={<span className="flex items-center gap-2">{transport?.mode === 'local' && <ModeBadge />}{state && <LiveBadge count={total} connected={connected} />}</span>}
+        right={
+          <span className="flex items-center gap-2">{state && <LiveBadge count={total} connected={connected} />}</span>
+        }
       />
       <div className="flex-1 px-5 pb-44 pt-6 sm:px-6">
         <FadeUp>
-          <h1 className="font-display text-[30px] font-semibold leading-[1.15] tracking-[-0.015em] text-ink">Get everyone in</h1>
-          <p className="mt-2 text-[15px] text-ink-soft">Send the link, flash the QR, or read out the code. That's it.</p>
+          <h1 className="font-display text-[30px] font-semibold leading-[1.15] tracking-[-0.015em] text-ink">
+            Get everyone in
+          </h1>
+          <p className="mt-2 text-[15px] text-ink-muted">
+            Send the link, flash the QR, or read out the code. That's it.
+          </p>
         </FadeUp>
 
         <FadeUp delay={0.2} className="mt-6">
-          <div className="flex flex-col items-center gap-5 rounded-[24px] border border-clay-line bg-paper p-6 shadow-card">
-            <p className="text-center text-[14px] font-semibold leading-relaxed text-ink-soft">{shareCopy}</p>
+          <div className="ticket-panel flex flex-col items-center gap-5 p-6">
+            <span className="ballot-stamp self-start text-signal">Admit table</span>
+            <p className="text-center text-[14px] font-semibold leading-relaxed text-ink-muted">{shareCopy}</p>
             <motion.div
-              initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
               transition={{ duration: 0.5, ease: EASE_POP }}
               className="relative p-3"
             >
-              {/* terracotta corner brackets */}
-              {['top-0 left-0 border-t-[3px] border-l-[3px] rounded-tl-[20px]',
+              {/* Scanner brackets echo the electric registration marks on printed tickets. */}
+              {[
+                'top-0 left-0 border-t-[3px] border-l-[3px] rounded-tl-[20px]',
                 'top-0 right-0 border-t-[3px] border-r-[3px] rounded-tr-[20px]',
                 'bottom-0 left-0 border-b-[3px] border-l-[3px] rounded-bl-[20px]',
-                'bottom-0 right-0 border-b-[3px] border-r-[3px] rounded-br-[20px]'].map((pos) => (
+                'bottom-0 right-0 border-b-[3px] border-r-[3px] rounded-br-[20px]',
+              ].map((pos) => (
                 <motion.span
                   key={pos}
-                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.6 }}
-                  className={`absolute h-8 w-8 border-terracotta ${pos}`}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.6 }}
+                  className={`absolute h-8 w-8 border-electric ${pos}`}
                 />
               ))}
-              {qr && <img src={qr} alt="Session QR code" className="h-[176px] w-[176px] rounded-lg" />}
+              {qr && <img src={qr} alt="Session QR code" className="h-[176px] w-[176px] border-2 border-rule" />}
             </motion.div>
             {state && <CodeTiles code={state.code} />}
             <Btn variant="secondary" className="h-12 w-full" onClick={copyLink}>
-              {copied ? <><Check size={18} className="text-olive" /> Copied!</> : <><Link2 size={18} strokeWidth={1.75} /> Copy invite message</>}
+              {copied ? (
+                <>
+                  <Check size={18} className="text-electric" /> Copied!
+                </>
+              ) : (
+                <>
+                  <Link2 size={18} strokeWidth={1.75} /> Copy invite message
+                </>
+              )}
             </Btn>
-            <Btn variant="quiet" onClick={shareNative}><Share2 size={16} strokeWidth={1.75} /> Share via…</Btn>
+            <Btn variant="quiet" onClick={shareNative}>
+              <Share2 size={16} strokeWidth={1.75} /> Share via…
+            </Btn>
           </div>
         </FadeUp>
 
         <div className="mt-8">
           <div className="flex items-baseline justify-between">
-            <h2 ref={rosterHeadingRef} tabIndex={-1} className="text-[13px] font-semibold uppercase tracking-[0.01em] text-ink-soft">Who's in</h2>
-            <span role="status" aria-atomic="true" className="text-[13px] font-semibold text-ink-faint">{online} online · {total} joined</span>
+            <h2 ref={rosterHeadingRef} tabIndex={-1} className="ticket-label">
+              Who's in
+            </h2>
+            <span role="status" aria-atomic="true" className="text-[13px] font-semibold text-ink-faint">
+              {online} online · {total} joined
+            </span>
           </div>
           <div className="mt-3 flex flex-wrap gap-4">
             {state?.participants.map((p) => (
               <motion.div
                 key={p.id}
-                initial={{ scale: 0 }} animate={{ scale: 1 }}
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
                 transition={{ duration: 0.4, ease: EASE_POP }}
                 className="flex w-14 flex-col items-center gap-1"
               >
                 <AvatarDot nickname={p.nickname} color={p.color} submitted={p.submitted} crown={p.isHost} />
-                <span className={`max-w-full truncate text-[11px] font-semibold ${p.online ? 'text-ink-soft' : 'text-ink-faint'}`}>
+                <span
+                  className={`max-w-full truncate text-[11px] font-semibold ${p.online ? 'text-ink-muted' : 'text-ink-faint'}`}
+                >
                   {p.nickname}
                 </span>
                 <span className="sr-only">, {p.online ? 'online' : 'offline'}</span>
                 {identity?.isHost && !p.isHost && (
                   <button
                     aria-label={`Remove ${p.nickname}`}
-                    className="flex h-7 w-7 items-center justify-center rounded-full text-ink-faint hover:bg-tomato-tint hover:text-tomato"
+                    className="flex h-7 w-7 items-center justify-center border border-transparent text-ink-faint hover:border-danger hover:bg-danger-tint hover:text-danger"
                     onClick={() => remove(p.id, p.nickname)}
                   >
                     <UserMinus size={14} />
@@ -187,18 +226,24 @@ export default function Share() {
             ))}
           </div>
           {total <= 1 && (
-            <p className="mt-4 text-center text-[13px] font-semibold text-ink-soft">Waiting for the crew… they'll pop up here.</p>
+            <p className="mt-4 text-center text-[13px] font-semibold text-ink-muted">
+              Waiting for the crew… they'll pop up here.
+            </p>
           )}
         </div>
 
         <div className="mt-8 flex items-start gap-2">
-          <EyeOff size={16} strokeWidth={1.75} className="mt-0.5 shrink-0 text-ink-soft" />
-          <p className="text-[13px] font-semibold leading-[1.4] text-ink-soft">
+          <EyeOff size={16} strokeWidth={1.75} className="mt-0.5 shrink-0 text-ink-muted" />
+          <p className="text-[13px] font-semibold leading-[1.4] text-ink-muted">
             Votes are blind — you won't see anyone's picks, and they won't see yours.
           </p>
         </div>
         {submitted > 0 && (
-          <p role="status" aria-atomic="true" className="mt-2 flex items-center gap-1.5 text-[13px] font-semibold text-olive">
+          <p
+            role="status"
+            aria-atomic="true"
+            className="mt-2 flex items-center gap-1.5 font-mono text-[11px] font-medium uppercase text-electric"
+          >
             <Check size={14} /> {submitted} of {total} ready
           </p>
         )}
@@ -206,11 +251,28 @@ export default function Share() {
       </div>
 
       <CtaBar>
-        <Btn variant="quiet" className="mx-auto mb-1 block min-h-8" onClick={() => nav(`/s/${state?.code ?? code}/preferences`)}>
+        <Btn
+          variant="quiet"
+          className="mx-auto mb-1 block min-h-8"
+          onClick={() => nav(`/s/${state?.code ?? code}/preferences`)}
+        >
           Vote too
         </Btn>
-        <Btn className="w-full" disabled={!canReveal || revealing || locking} loading={revealing || locking} onClick={startReveal}>
-          {locking ? 'Locking votes…' : revealing ? 'Gathering votes…' : <>Start the reveal <Sparkles size={18} /></>}
+        <Btn
+          className="w-full"
+          disabled={!canReveal || revealing || locking}
+          loading={revealing || locking}
+          onClick={startReveal}
+        >
+          {locking ? (
+            'Locking votes…'
+          ) : revealing ? (
+            'Gathering votes…'
+          ) : (
+            <>
+              Start the reveal <Sparkles size={18} />
+            </>
+          )}
         </Btn>
         {!canReveal && (
           <p className="mt-1.5 text-center text-[13px] font-semibold text-ink-faint">
@@ -221,14 +283,21 @@ export default function Share() {
           <AlertDialogTrigger className="mx-auto mt-1 block text-[12px] font-semibold text-ink-faint underline-offset-2 hover:underline">
             End session
           </AlertDialogTrigger>
-          <AlertDialogContent className="max-w-[420px] rounded-[20px] bg-paper">
+          <AlertDialogContent className="max-w-[420px] rounded-[2px] border-[3px] border-rule bg-ticket shadow-ticket">
             <AlertDialogHeader>
               <AlertDialogTitle className="font-display text-ink">End this session?</AlertDialogTitle>
-              <AlertDialogDescription className="text-ink-soft">Everyone will be kicked and votes deleted.</AlertDialogDescription>
+              <AlertDialogDescription className="text-ink-muted">
+                Everyone will be kicked and votes deleted.
+              </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel className="rounded-xl border-clay-line">Keep it</AlertDialogCancel>
-              <AlertDialogAction onClick={endSession} className="rounded-xl bg-tomato text-paper hover:bg-tomato/90">End session</AlertDialogAction>
+              <AlertDialogCancel className="rounded-[2px] border-2 border-rule">Keep it</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={endSession}
+                className="rounded-[2px] border-2 border-rule bg-danger text-ticket hover:bg-signal"
+              >
+                End session
+              </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>

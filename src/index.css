@@ -4,71 +4,119 @@
 
 @layer base {
   :root {
-    --background: 37 47% 95%;
-    --foreground: 25 15% 15%;
-    --card: 40 100% 99%;
-    --card-foreground: 25 15% 15%;
-    --popover: 40 100% 99%;
-    --popover-foreground: 25 15% 15%;
-    --primary: 16 63% 47%;
-    --primary-foreground: 40 100% 99%;
-    --secondary: 38 38% 90%;
-    --secondary-foreground: 25 15% 15%;
-    --muted: 38 38% 90%;
-    --muted-foreground: 24 11% 38%;
-    --accent: 38 38% 90%;
-    --accent-foreground: 25 15% 15%;
-    --destructive: 8 60% 44%;
-    --destructive-foreground: 40 100% 99%;
-    --border: 35 26% 83%;
-    --input: 35 26% 83%;
-    --ring: 16 63% 47%;
-    --radius: 0.75rem;
+    --background: 150 8% 95%;
+    --foreground: 290 37% 12%;
+    --card: 72 56% 98%;
+    --card-foreground: 290 37% 12%;
+    --popover: 72 56% 98%;
+    --popover-foreground: 290 37% 12%;
+    --primary: 356 85% 57%;
+    --primary-foreground: 72 56% 98%;
+    --secondary: 228 100% 93%;
+    --secondary-foreground: 290 37% 12%;
+    --muted: 160 5% 90%;
+    --muted-foreground: 290 8% 36%;
+    --accent: 73 89% 60%;
+    --accent-foreground: 290 37% 12%;
+    --destructive: 353 73% 45%;
+    --destructive-foreground: 72 56% 98%;
+    --border: 290 37% 12%;
+    --input: 290 37% 12%;
+    --ring: 228 100% 57%;
+    --radius: 0.25rem;
   }
 }
 
 @layer base {
   * {
-    @apply border-clay-line;
+    @apply border-rule;
   }
   html {
     overscroll-behavior: contain;
   }
   body {
-    @apply bg-cream text-ink font-sans antialiased;
-    font-feature-settings: "ss01";
+    @apply bg-canvas font-sans text-ink antialiased;
+    font-feature-settings: 'ss01', 'case';
   }
-  h1, h2, h3, .font-display {
-    font-family: "Aptos Display", "Avenir Next", "Trebuchet MS", sans-serif;
-    letter-spacing: -0.02em;
+  h1,
+  h2,
+  h3,
+  .font-display {
+    font-family: 'Bricolage Grotesque Variable', 'Arial Narrow', sans-serif;
+    letter-spacing: -0.035em;
   }
 }
 
-/* warm paper noise overlay */
+/* Cool ticket stock with a faint halftone grain. */
 .paper-noise::before {
-  content: "";
+  content: '';
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 1;
-  opacity: 0.02;
+  opacity: 0.025;
+  mix-blend-mode: multiply;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='256' height='256' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-.ease-standard { transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1); }
+@layer components {
+  .ticket-panel {
+    @apply relative border-[3px] border-rule bg-ticket shadow-ticket;
+  }
+
+  .ticket-panel::before,
+  .ticket-panel::after {
+    content: '';
+    @apply pointer-events-none absolute top-1/2 h-5 w-3 -translate-y-1/2 bg-canvas;
+  }
+
+  .ticket-panel::before {
+    @apply -left-[3px] rounded-r-full border-y-[3px] border-r-[3px] border-rule;
+  }
+
+  .ticket-panel::after {
+    @apply -right-[3px] rounded-l-full border-y-[3px] border-l-[3px] border-rule;
+  }
+
+  .tear-rule {
+    @apply border-t-2 border-dashed border-rule;
+  }
+
+  .ticket-label {
+    @apply font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-ink-muted;
+  }
+
+  .ballot-stamp {
+    @apply inline-flex -rotate-2 items-center border-2 border-current px-2 py-1 font-mono text-[11px] font-medium uppercase tracking-[0.1em];
+  }
+}
+
+.ease-standard {
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
 
 @keyframes ellipsis-dots {
-  0%, 20% { content: "."; }
-  40% { content: ".."; }
-  60%, 100% { content: "..."; }
+  0%,
+  20% {
+    content: '.';
+  }
+  40% {
+    content: '..';
+  }
+  60%,
+  100% {
+    content: '...';
+  }
 }
 .animated-ellipsis::after {
-  content: "...";
+  content: '...';
   animation: ellipsis-dots 1.2s infinite steps(1);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     animation: none !important;
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
@@ -80,11 +128,18 @@
     display: none;
   }
 
-  button, input, [role="switch"] {
+  button,
+  input,
+  [role='switch'] {
     border: 1px solid ButtonText !important;
   }
 
-  [aria-pressed="true"], [role="switch"][data-state="checked"] {
+  .ticket-panel {
+    box-shadow: none !important;
+  }
+
+  [aria-pressed='true'],
+  [role='switch'][data-state='checked'] {
     outline: 2px solid Highlight !important;
     outline-offset: -4px;
   }

@@ -1,25 +1,26 @@
 # Roadmap
 
-TableVote is complete as a portfolio prototype. Future work is optional and should preserve the current privacy and determinism contracts.
+TableVote is complete only as a portfolio prototype. Future work should preserve explicit privacy, deterministic outcomes, and honest fixture provenance.
 
-## Good First Contributions
+## Near-Term
 
-- Improve contributor documentation and fixture-generation tests.
-- Add visual regression coverage for the existing responsive states.
-- Improve development-only local-mode identity isolation.
-- Add more deterministic ranking scenarios without changing weights.
+- Expand operation-contract and projection tests when behavior changes.
+- Add visual regression coverage for responsive and accessibility states.
+- Add more deterministic ranking scenarios without changing policy weights implicitly.
+- Keep evaluator and deployment troubleshooting aligned with verified behavior.
 
 ## Larger Experiments
 
-- Provider-neutral restaurant adapters using licensed data.
-- Transactional PostgreSQL persistence and restart recovery.
-- Arabic localization and complete RTL validation.
-- A consented usability study with clearly fictional or licensed candidates.
+- Provider-neutral adapters using licensed venue data and field-level provenance.
+- Transactional persistence, hashed capabilities, and restart recovery.
+- Multi-instance presence, quotas, and replay coordination.
+- Arabic localization with complete RTL validation.
+- A consented usability study before changing ranking weights.
 
-## Out of Scope
+## Out Of Scope
 
-- Paid ranking or sponsored winners.
-- Invented dietary or restaurant facts.
-- AI-generated ranking decisions.
+- Paid placement or sponsored winners.
+- Invented dietary or restaurant facts presented as real.
+- Nondeterministic or unexplained ranking decisions.
 - Public result links that bypass participant capabilities.
-- Production hosting without operational ownership.
+- Production hosting without operational ownership and deployment-specific review.

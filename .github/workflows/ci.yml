@@ -14,23 +14,26 @@ concurrency:
 
 jobs:
   build-test:
+    timeout-minutes: 30
     strategy:
       matrix:
-        node-version: [20, 22]
+        node-version: [22, 24]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
       - name: Secret scan
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: ${{ matrix.node-version }}
           cache: npm
       - run: npm ci
+      - name: Formatting
+        run: npm run format:check
       - name: Lint
         run: npm run lint
       - name: Documentation links
@@ -40,20 +43,24 @@ jobs:
       - name: Fictional catalog
         run: npm run check:catalog
       - name: Test
-        run: npm test
+        run: npm run test:coverage
+      - name: Tooling tests
+        run: npm run test:tooling
       - name: Production dependency policy
         run: npm run audit:prod
+      - name: Full dependency policy
+        run: npm run audit:all
       - name: Build
         run: npm run build
       - name: Install browser matrix
-        if: matrix.node-version == 20
+        if: matrix.node-version == 22
         run: npx playwright install --with-deps chromium firefox webkit
       - name: Browser and accessibility tests
-        if: matrix.node-version == 20
-        run: npm run test:browser
+        if: matrix.node-version == 22
+        run: npm run test:browser:built
       - name: Upload browser report
-        if: failure() && matrix.node-version == 20
-        uses: actions/upload-artifact@v4
+        if: failure() && matrix.node-version == 22
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: playwright-report
           path: playwright-report
@@ -62,4 +69,4 @@ jobs:
       - name: Production-only runtime smoke
         run: |
           npm prune --omit=dev
-          npm run smoke:prod
+          npm run smoke:prod:built

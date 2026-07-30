@@ -1,5 +1,8 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Private security report
+  - name: Private vulnerability report
     url: https://github.com/HaithamAlMaamari/tablevote/security/advisories/new
-    about: Report vulnerabilities or sensitive security information privately.
+    about: Report a vulnerability or sensitive security information privately. Do not use this for conduct concerns.
+  - name: Conduct reporting contact
+    url: https://github.com/HaithamAlMaamari
+    about: Use a private contact method published on the maintainer profile. A dedicated private conduct channel is not currently available.

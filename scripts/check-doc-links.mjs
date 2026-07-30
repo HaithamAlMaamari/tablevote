@@ -17,7 +17,7 @@ async function markdownFiles(directory) {
   for (const entry of entries) {
     if (entry.isDirectory()) {
       if (!ignoredDirectories.has(entry.name)) {
-        files.push(...await markdownFiles(path.join(directory, entry.name)));
+        files.push(...(await markdownFiles(path.join(directory, entry.name))));
       }
     } else if (entry.isFile() && entry.name.endsWith('.md')) {
       files.push(path.join(directory, entry.name));

@@ -1,0 +1,59 @@
+name: Question or support request
+description: Ask a scoped usage, evaluation, documentation, or contribution question
+title: '[Question]: '
+labels: [question]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        This is a public form. Do not include invite codes or URLs, capabilities,
+        authorization headers, ballots, dietary requirements, nicknames, exact locations,
+        conduct incident details, or unredacted logs. Vulnerabilities belong in private
+        vulnerability reporting; conduct intake is described in CODE_OF_CONDUCT.md.
+  - type: dropdown
+    id: category
+    attributes:
+      label: Question category
+      options:
+        - Running or evaluating the prototype
+        - Architecture or operation contract
+        - Contributing or verification
+        - Documentation clarification
+        - Request for a private conduct contact route (no incident details)
+    validations:
+      required: true
+  - type: textarea
+    id: question
+    attributes:
+      label: Specific question
+      description: Ask one concrete question and include the outcome you are trying to reach.
+      placeholder: Which command verifies the built browser flows without rebuilding an existing artifact?
+    validations:
+      required: true
+  - type: textarea
+    id: consulted
+    attributes:
+      label: Documentation consulted
+      description: List the README/docs sections or commands you already checked.
+      placeholder: README Verification; docs/OPERATIONS.md Replay And Fallback
+    validations:
+      required: true
+  - type: textarea
+    id: attempted
+    attributes:
+      label: What you tried
+      description: Include minimal redacted commands or observations. Write "Not applicable" for a conceptual question.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment, if relevant
+      description: OS, Node version, browser/version, and commit or branch. Do not include session data.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Public-data check
+      options:
+        - label: I understand this issue is public and removed all private session, participant, location, security, and conduct details.
+          required: true

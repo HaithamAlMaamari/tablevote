@@ -1,7 +1,8 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test, type Browser, type Locator, type Page } from '@playwright/test';
+import { expect, test, type Browser, type BrowserContext, type Locator, type Page } from '@playwright/test';
 
-const PROHIBITED_PRIVATE_FIELDS = /"(?:prefs|token|hostToken|perPerson|scoringSheet|meanUtility|minUtility|cuisineScore|priceScore|distanceScore|explanation)"/;
+const PROHIBITED_PRIVATE_FIELDS =
+  /"(?:prefs|token|hostToken|perPerson|scoringSheet|meanUtility|minUtility|cuisineScore|priceScore|distanceScore|explanation)"/;
 const RESPONSIVE_WIDTHS = [320, 360, 390, 480, 1280] as const;
 const TEXT_SPACING_CSS = `
   * {
@@ -15,7 +16,12 @@ const TEXT_SPACING_CSS = `
 function collectReceivedFrames(page: Page) {
   const frames: string[] = [];
   page.on('websocket', (socket) => {
-    socket.on('framereceived', ({ payload }) => frames.push(payload.toString()));
+    socket.on('framereceived', ({ payload }) => {
+      const frame = payload.toString();
+      // Socket.IO type 2 packets are pushed events; type 3 ACKs may carry the
+      // requesting participant's credentials and are not broadcast state.
+      if (frame.startsWith('42')) frames.push(frame);
+    });
   });
   return frames;
 }
@@ -25,32 +31,43 @@ function collectBrowserSignals(page: Page) {
   const errors: string[] = [];
   page.on('request', (request) => requests.push({ method: request.method(), url: request.url() }));
   page.on('console', (message) => {
-    if (message.type() === 'error') errors.push(message.text());
+    const text = message.text();
+    const blockedDependencyProbe =
+      text.includes('Content-Security-Policy') &&
+      text.includes('blocked a JavaScript eval') &&
+      text.includes("script-src 'self'") &&
+      text.includes('/assets/session-state-');
+    if (message.type() === 'error' && !blockedDependencyProbe) errors.push(text);
   });
   page.on('pageerror', (error) => errors.push(error.message));
   return { requests, errors };
 }
 
-function isAllowedBackgroundRequest(request: { method: string; url: string }) {
+function isAllowedBackgroundRequest(request: { method: string; url: string }, expectedOrigin: string) {
   const url = new URL(request.url);
-  if (url.protocol === 'blob:') return request.method === 'GET' && url.origin === 'http://127.0.0.1:3001';
-  if (url.origin !== 'http://127.0.0.1:3001') return false;
-  if (request.method === 'GET' && (url.pathname === '/' || /^\/assets\/[\w.-]+\.(?:js|css)$/.test(url.pathname))) return true;
+  if (url.protocol === 'blob:') return request.method === 'GET' && url.origin === expectedOrigin;
+  if (url.origin !== expectedOrigin) return false;
+  if (request.method === 'GET' && (url.pathname === '/' || /^\/assets\/[\w.-]+\.(?:js|css)$/.test(url.pathname)))
+    return true;
   if (url.pathname === '/socket.io/' && ['GET', 'POST'].includes(request.method)) {
     return [...url.searchParams.keys()].every((key) => ['EIO', 'transport', 'sid', 't'].includes(key));
   }
   if (request.method === 'GET' && /^\/api\/sessions\/[^/]+(?:\/state)?$/.test(url.pathname)) return url.search === '';
   if (request.method !== 'POST' || url.search !== '') return false;
-  return url.pathname === '/api/sessions'
-    || url.pathname === '/api/sessions/join'
-    || /^\/api\/sessions\/[^/]+\/(?:submit|leave|reveal|rerun|end)$/.test(url.pathname)
-    || /^\/api\/sessions\/[^/]+\/participants\/[^/]+\/remove$/.test(url.pathname);
+  return (
+    url.pathname === '/api/sessions' ||
+    url.pathname === '/api/sessions/join' ||
+    /^\/api\/sessions\/[^/]+\/(?:submit|leave|reveal|rerun|end)$/.test(url.pathname) ||
+    /^\/api\/sessions\/[^/]+\/participants\/[^/]+\/remove$/.test(url.pathname)
+  );
 }
 
 async function expectNoHorizontalOverflow(page: Page) {
-  expect(await page.evaluate(() => Math.max(
-    document.documentElement.scrollWidth, document.body.scrollWidth,
-  ) <= window.innerWidth)).toBe(true);
+  expect(
+    await page.evaluate(
+      () => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) <= window.innerWidth,
+    ),
+  ).toBe(true);
 }
 
 async function expectControlContentFits(locator: Locator, viewportWidth: number) {
@@ -79,27 +96,72 @@ async function sessionStorageReference(page: Page, code: string) {
 }
 
 async function expectSessionStorageCleared(page: Page, references: string[]) {
-  const leftovers = await page.evaluate((targets) => Object.entries(localStorage)
-    .filter(([key, value]) => targets.some((target) => key.includes(target) || value.includes(target))), references);
+  const leftovers = await page.evaluate(
+    (targets) =>
+      Object.entries(localStorage).filter(([key, value]) =>
+        targets.some((target) => key.includes(target) || value.includes(target)),
+      ),
+    references,
+  );
   expect(leftovers).toEqual([]);
+}
+
+async function waitForLayout(page: Page) {
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      }),
+  );
+}
+
+async function waitForFiniteAnimations(page: Page) {
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          document.getAnimations().filter((animation) => {
+            const endTime = animation.effect?.getComputedTiming().endTime;
+            return animation.playState === 'running' && typeof endTime === 'number' && Number.isFinite(endTime);
+          }).length,
+      ),
+    )
+    .toBe(0);
+}
+
+async function setViewportAndWait(page: Page, width: number, height: number) {
+  await page.setViewportSize({ width, height });
+  await expect.poll(() => page.evaluate(() => ({ width: innerWidth, height: innerHeight }))).toEqual({ width, height });
+  await waitForLayout(page);
+}
+
+async function closeContexts(...contexts: BrowserContext[]) {
+  await Promise.all(contexts.map((context) => context.close({ reason: 'TableVote test cleanup' })));
 }
 
 async function expectAccessible(page: Page) {
   const height = await page.evaluate(() => document.documentElement.scrollHeight);
   for (let y = 0; y < height; y += 500) {
     await page.evaluate((top) => window.scrollTo(0, top), y);
-    await page.waitForTimeout(100);
+    await waitForLayout(page);
   }
   await page.evaluate(() => window.scrollTo(0, 0));
-  await page.waitForTimeout(750);
+  await waitForLayout(page);
+  await waitForFiniteAnimations(page);
   // Scan final content colors, not translucent entry-animation frames.
   await page.addStyleTag({ content: 'main [style*="opacity"] { opacity: 1 !important; }' });
   const results = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
     .analyze();
-  expect(results.violations, results.violations.map((violation) =>
-    `${violation.id}: ${violation.help}\n${violation.nodes.map((node) => node.target.join(' ')).join('\n')}`,
-  ).join('\n\n')).toEqual([]);
+  expect(
+    results.violations,
+    results.violations
+      .map(
+        (violation) =>
+          `${violation.id}: ${violation.help}\n${violation.nodes.map((node) => node.target.join(' ')).join('\n')}`,
+      )
+      .join('\n\n'),
+  ).toEqual([]);
 }
 
 async function createSession(page: Page, publicHostNickname?: string) {
@@ -138,7 +200,10 @@ async function submitBallot(page: Page, cuisine: string, strictAll = false) {
   if (strictAll) {
     for (const requirement of ['Vegetarian', 'Vegan', 'Halal', 'Kosher', 'Gluten-free']) {
       await page.getByRole('button', { name: requirement, exact: true }).click();
-      await expect(page.getByRole('button', { name: `${requirement} Required`, exact: true })).toHaveAttribute('aria-pressed', 'true');
+      await expect(page.getByRole('button', { name: `${requirement} Required`, exact: true })).toHaveAttribute(
+        'aria-pressed',
+        'true',
+      );
     }
     await expect(page.getByRole('switch')).toHaveCount(0);
   }
@@ -160,14 +225,13 @@ test('route focus, disclosure behavior, and public screens are accessible', asyn
     if (message.type() === 'error') startupErrors.push(message.text());
   });
   page.on('pageerror', (error) => startupErrors.push(error.message));
-  page.on('requestfailed', (request) => startupErrors.push(
-    `${request.method()} ${request.url()}: ${request.failure()?.errorText ?? 'request failed'}`,
-  ));
+  page.on('requestfailed', (request) =>
+    startupErrors.push(`${request.method()} ${request.url()}: ${request.failure()?.errorText ?? 'request failed'}`),
+  );
   await page.goto('/');
-  await page.waitForTimeout(500);
-  expect(startupErrors).toEqual([]);
   await expect(page).toHaveTitle('TableVote');
   await expect(page.getByRole('heading', { name: 'Stop debating where to eat.' })).toBeFocused();
+  expect(startupErrors).toEqual([]);
   const howItWorks = page.getByRole('button', { name: 'How does it work?' });
   await howItWorks.focus();
   await page.keyboard.press('Enter');
@@ -208,8 +272,11 @@ test('public entry screens reflow with WCAG text spacing at 320px', async ({ pag
 
   await page.goto('/');
   await page.addStyleTag({ content: TEXT_SPACING_CSS });
-  expect(await page.getByRole('heading', { level: 1 }).evaluate((element) =>
-    Number.parseFloat(getComputedStyle(element).letterSpacing))).toBeGreaterThan(0);
+  expect(
+    await page
+      .getByRole('heading', { level: 1 })
+      .evaluate((element) => Number.parseFloat(getComputedStyle(element).letterSpacing)),
+  ).toBeGreaterThan(0);
   await expectNoHorizontalOverflow(page);
   await expectControlContentFits(page.getByRole('button', { name: 'Create a table' }).first(), viewportWidth);
   await expectControlContentFits(page.getByRole('button', { name: 'Join with code' }), viewportWidth);
@@ -240,7 +307,9 @@ test('forced colors preserve control boundaries, state, and focus', async ({ pag
   await expect(selectedRadius).toHaveAttribute('aria-pressed', 'true');
   await nextRadius.click();
   await expect(nextRadius).toHaveAttribute('aria-pressed', 'true');
-  expect(await nextRadius.evaluate((element) => Number.parseFloat(getComputedStyle(element).outlineWidth))).toBeGreaterThan(0);
+  expect(
+    await nextRadius.evaluate((element) => Number.parseFloat(getComputedStyle(element).outlineWidth)),
+  ).toBeGreaterThan(0);
 
   await page.getByRole('button', { name: 'More options' }).click();
   await page.getByLabel('Your nickname (host)').fill('Sam');
@@ -261,7 +330,10 @@ test('forced colors preserve control boundaries, state, and focus', async ({ pag
   expect(await create.evaluate((element) => element.matches(':focus-visible'))).toBe(true);
   const createStyle = await create.evaluate((element) => {
     const style = getComputedStyle(element);
-    return { borderWidth: Number.parseFloat(style.borderTopWidth), outlineWidth: Number.parseFloat(style.outlineWidth) };
+    return {
+      borderWidth: Number.parseFloat(style.borderTopWidth),
+      outlineWidth: Number.parseFloat(style.outlineWidth),
+    };
   });
   expect(createStyle.borderWidth).toBeGreaterThan(0);
   expect(createStyle.outlineWidth).toBeGreaterThan(0);
@@ -279,15 +351,26 @@ test('typed session errors recover through keyboard retry', async ({ page }) => 
   let lookups = 0;
   await page.route('**/api/sessions/ABCDE', async (route) => {
     lookups += 1;
-    await route.fulfill(lookups === 1 ? {
-      status: 503,
-      contentType: 'application/json',
-      body: JSON.stringify({ error: 'Server unavailable', errorCode: 'unavailable' }),
-    } : {
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ invite: {} }),
-    });
+    await route.fulfill(
+      lookups === 1
+        ? {
+            status: 503,
+            contentType: 'application/json',
+            body: JSON.stringify({ error: 'Server unavailable', errorCode: 'unavailable' }),
+          }
+        : {
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              invite: {
+                code: 'ABCDE',
+                areaLabel: 'Retry District',
+                expiresAt: Date.now() + 60_000,
+                joinable: true,
+              },
+            }),
+          },
+    );
   });
 
   await page.goto('/#/s/ABCDE/host');
@@ -310,8 +393,10 @@ test('separate host and guest contexts complete a private responsive result', as
   const guestSignals = collectBrowserSignals(guest);
   try {
     const code = await createSession(host, 'Browser Host');
-    const publicInvite = await host.evaluate(async (sessionCode) =>
-      (await fetch(`/api/sessions/${sessionCode}`)).json(), code);
+    const publicInvite = await host.evaluate(
+      async (sessionCode) => (await fetch(`/api/sessions/${sessionCode}`)).json(),
+      code,
+    );
     expect(publicInvite.invite.hostNickname).toBe('Browser Host');
     expect(JSON.stringify(publicInvite)).not.toMatch(/participant|token|prefs/i);
     await joinSession(
@@ -324,10 +409,7 @@ test('separate host and guest contexts complete a private responsive result', as
 
     await host.getByRole('button', { name: 'Vote too' }).click();
     await expect(host).toHaveURL(/\/preferences$/);
-    await Promise.all([
-      submitBallot(host, 'Japanese'),
-      submitBallot(guest, 'Lebanese'),
-    ]);
+    await Promise.all([submitBallot(host, 'Japanese'), submitBallot(guest, 'Lebanese')]);
 
     await expect(host.getByRole('button', { name: 'Invite more people' })).toBeVisible();
 
@@ -349,13 +431,14 @@ test('separate host and guest contexts complete a private responsive result', as
     await expect(host.getByRole('button', { name: 'Skip' })).toBeVisible();
     await expect(host.getByRole('button', { name: 'See full results' })).toBeVisible();
     for (const width of RESPONSIVE_WIDTHS) {
-      await guest.setViewportSize({ width, height: width < 500 ? 844 : 800 });
-      await guest.waitForTimeout(100);
+      await setViewportAndWait(guest, width, width < 500 ? 844 : 800);
       await expectNoHorizontalOverflow(guest);
-      const boxes = await guest.getByTestId('reveal-finalist').evaluateAll((elements) => elements.map((element) => {
-        const box = element.getBoundingClientRect();
-        return { left: box.left, right: box.right };
-      }));
+      const boxes = await guest.getByTestId('reveal-finalist').evaluateAll((elements) =>
+        elements.map((element) => {
+          const box = element.getBoundingClientRect();
+          return { left: box.left, right: box.right };
+        }),
+      );
       expect(boxes).toHaveLength(3);
       for (const box of boxes) {
         expect(box.left, `${width}px: ${JSON.stringify(boxes)}`).toBeGreaterThanOrEqual(-0.5);
@@ -378,8 +461,12 @@ test('separate host and guest contexts complete a private responsive result', as
     const hostWinner = await hostWinnerHeading.innerText();
     await expect(guestWinnerHeading).toHaveText(hostWinner);
     await expect(host.getByText('Ranking tv-rank-1.0.0')).toHaveCount(0);
-    await expect(host.getByText(/Each private fit combines cuisine 35, price 25, distance 20, and rating 20 points/)).toBeVisible();
-    await expect(host.getByText(/group-fit index combines average fit 70, least-satisfied fit 20, and normalized rank points 10/)).toBeVisible();
+    await expect(
+      host.getByText(/Each private fit combines cuisine 35, price 25, distance 20, and rating 20 points/),
+    ).toBeVisible();
+    await expect(
+      host.getByText(/group-fit index combines average fit 70, least-satisfied fit 20, and normalized rank points 10/),
+    ).toBeVisible();
     await expect(host.getByText('Browser Guest', { exact: true })).toHaveCount(0);
 
     const privateState = await host.evaluate(async (sessionCode) => {
@@ -390,18 +477,23 @@ test('separate host and guest contexts complete a private responsive result', as
       return response.json();
     }, code);
     expect(JSON.stringify(privateState)).not.toMatch(PROHIBITED_PRIVATE_FIELDS);
-    const refreshedPublicInvite = await host.evaluate(async (sessionCode) =>
-      (await fetch(`/api/sessions/${sessionCode}`)).json(), code);
+    const refreshedPublicInvite = await host.evaluate(
+      async (sessionCode) => (await fetch(`/api/sessions/${sessionCode}`)).json(),
+      code,
+    );
     expect(Object.keys(refreshedPublicInvite)).toEqual(['invite']);
     expect(JSON.stringify(refreshedPublicInvite)).not.toMatch(/participants|result|selfParticipantId/);
 
     for (const width of RESPONSIVE_WIDTHS) {
-      await guest.setViewportSize({ width, height: width < 500 ? 844 : 800 });
-      await guest.waitForTimeout(100);
+      await setViewportAndWait(guest, width, width < 500 ? 844 : 800);
       await expectNoHorizontalOverflow(guest);
       await expect(guest.getByRole('heading', { level: 1 })).toBeVisible();
     }
-    await guest.setViewportSize({ width: 320, height: 720 });
+    await setViewportAndWait(guest, 320, 720);
+    for (const signals of [hostSignals, guestSignals]) {
+      expect(signals.errors).toEqual([]);
+      signals.errors.length = 0;
+    }
     await expectAccessible(guest);
 
     const firstWinner = hostWinner;
@@ -427,10 +519,11 @@ test('separate host and guest contexts complete a private responsive result', as
     expect(hostFrames.join('\n')).not.toMatch(PROHIBITED_PRIVATE_FIELDS);
     expect(guestFrames.join('\n')).not.toMatch(PROHIBITED_PRIVATE_FIELDS);
     expect(hostFrames.join('\n')).toMatch(/"phase":"locking"/);
+    const expectedOrigin = new URL(host.url()).origin;
     for (const signals of [hostSignals, guestSignals]) {
       expect(signals.errors).toEqual([]);
       for (const request of signals.requests) {
-        expect(isAllowedBackgroundRequest(request), `${request.method} ${request.url}`).toBe(true);
+        expect(isAllowedBackgroundRequest(request, expectedOrigin), `${request.method} ${request.url}`).toBe(true);
       }
     }
   } finally {
@@ -481,8 +574,7 @@ test('offline participant reattaches before returning to live state', async ({ b
     await expect(reconnecting.page.getByText('Offline Joiner', { exact: true })).toBeVisible();
     await expect(reconnecting.page.getByText('Offline Joiner', { exact: true })).toHaveCount(1);
   } finally {
-    await reconnecting.context.close();
-    await newcomer.context.close();
+    await closeContexts(reconnecting.context, newcomer.context);
   }
 });
 
@@ -492,8 +584,9 @@ test('exact browser expiry clears identities, references, and ballot drafts', as
   expect(sessionId).toBeTruthy();
   await page.getByRole('button', { name: 'Vote too' }).click();
   await page.getByRole('button', { name: /^Japanese: neutral/ }).click();
-  await expect.poll(() => page.evaluate((sessionCode) =>
-    localStorage.getItem(`tablevote:prefs:${sessionCode}`), code)).not.toBeNull();
+  await expect
+    .poll(() => page.evaluate((sessionCode) => localStorage.getItem(`tablevote:prefs:${sessionCode}`), code))
+    .not.toBeNull();
   const expiresAt = await page.evaluate((sessionCode) => {
     const identity = JSON.parse(localStorage.getItem(`tablevote:me:${sessionCode}`) ?? '{}') as { expiresAt?: number };
     return identity.expiresAt;
@@ -517,10 +610,7 @@ test('rerun never relaxes strict requirements when no verified candidate remains
     const code = await createSession(host);
     await joinSession(guest.page, code, 'Strict Guest');
     await host.getByRole('button', { name: 'Vote too' }).click();
-    await Promise.all([
-      submitBallot(host, 'Japanese', true),
-      submitBallot(guest.page, 'Lebanese', true),
-    ]);
+    await Promise.all([submitBallot(host, 'Japanese', true), submitBallot(guest.page, 'Lebanese', true)]);
 
     await host.getByRole('button', { name: 'Start the reveal' }).click();
     await expect(host.getByRole('button', { name: 'See full results' })).toBeVisible();
@@ -535,7 +625,7 @@ test('rerun never relaxes strict requirements when no verified candidate remains
     await expect(host.getByText('No requirement was relaxed.')).toBeVisible();
     await expectAccessible(host);
   } finally {
-    await guest.context.close();
+    await closeContexts(guest.context);
   }
 });
 
@@ -612,10 +702,6 @@ test('host removal and session ending reach only the correct terminal clients', 
     await expectSessionStorageCleared(ended.page, [code, endedSessionId!]);
     await expectAccessible(ended.page);
   } finally {
-    // Windows Firefox can deadlock closing both Socket.IO contexts here; its browser fixture owns teardown.
-    if (test.info().project.name !== 'firefox') {
-      await removed.context.close();
-      await ended.context.close();
-    }
+    await closeContexts(removed.context, ended.context);
   }
 });

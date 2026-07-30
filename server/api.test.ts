@@ -4,23 +4,28 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { io as ioc, type Socket } from 'socket.io-client';
 import type { AddressInfo } from 'node:net';
-import { buildApp } from './index';
-import { ALGORITHM_VERSION, SESSION_TTL_MS, type Prefs, type SessionSnapshot } from '../shared/types';
-import { getByIdOrCode } from './store';
+import { buildApp } from './app';
+import { ALGORITHM_VERSION, type Prefs, type SessionSnapshot } from '../shared/types';
+import { SESSION_TTL_MS } from '../shared/policy';
+import type { SessionStore } from './store';
 
 const prefs = (over: Partial<Prefs>): Prefs => ({
-  cuisines: { Italian: 'like' }, budget: 2, maxDistanceKm: 5,
-  dietary: [], ...over,
+  cuisines: { Italian: 'like' },
+  budget: 2,
+  maxDistanceKm: 5,
+  dietary: [],
+  ...over,
 });
 
 describe('server API + socket smoke', () => {
   let http: ReturnType<typeof buildApp>['http'];
   let app: ReturnType<typeof buildApp>['app'];
+  let store: SessionStore;
   let url: string;
   let sock: Socket;
 
   beforeAll(async () => {
-    ({ http, app } = buildApp());
+    ({ http, app, store } = buildApp());
     await new Promise<void>((r) => http.listen(0, r));
     const { port } = http.address() as AddressInfo;
     url = `http://127.0.0.1:${port}`;
@@ -35,10 +40,16 @@ describe('server API + socket smoke', () => {
 
   it('full flow produces a valid result', async () => {
     // create (REST)
-    const create = await request(app).post('/api/sessions').send({
-      areaLabel: 'Qurum', center: { lat: 23.588, lng: 58.3829 }, radiusKm: 10,
-      nickname: 'Sam', color: 0, allowReruns: true,
-    });
+    const create = await request(app)
+      .post('/api/sessions')
+      .send({
+        areaLabel: 'Qurum',
+        center: { lat: 23.588, lng: 58.3829 },
+        radiusKm: 10,
+        nickname: 'Sam',
+        color: 0,
+        allowReruns: true,
+      });
     expect(create.status).toBe(201);
     const { code, hostToken, participantToken: hostPT, participantId: hostId, sessionId } = create.body;
     expect(code).toMatch(/^[A-Z2-9]{5}$/);
@@ -55,14 +66,15 @@ describe('server API + socket smoke', () => {
 
     const unauthorizedState = await request(app).get(`/api/sessions/${code}/state`);
     expect(unauthorizedState.status).toBe(401);
-    const authorizedState = await request(app).get(`/api/sessions/${code}/state`).set('Authorization', `Bearer ${hostPT}`);
+    const authorizedState = await request(app)
+      .get(`/api/sessions/${code}/state`)
+      .set('Authorization', `Bearer ${hostPT}`);
     expect(authorizedState.status).toBe(200);
     expect(authorizedState.body.state.selfParticipantId).toBe(hostId);
 
     // host watches state over socket
     const states: SessionSnapshot[] = [];
-    const emit = <T,>(ev: string, data: unknown) =>
-      new Promise<T>((res) => sock.emit(ev, data, (r: T) => res(r)));
+    const emit = <T>(ev: string, data: unknown) => new Promise<T>((res) => sock.emit(ev, data, (r: T) => res(r)));
     const attach = await emit<{ state: SessionSnapshot }>('attach', { sessionId, token: hostPT });
     expect(attach.state.code).toBe(code);
     sock.on('state', (s: SessionSnapshot) => states.push(s));
@@ -70,18 +82,27 @@ describe('server API + socket smoke', () => {
     // join ×3 (REST)
     const guests: { token: string }[] = [];
     for (const [i, nick] of ['Maya', 'Jo', 'Pri'].entries()) {
-      const j = await request(app).post('/api/sessions/join').send({ code, nickname: nick, color: (i + 1) % 4 });
+      const j = await request(app)
+        .post('/api/sessions/join')
+        .send({ code, nickname: nick, color: (i + 1) % 4 });
       expect(j.status).toBe(201);
       guests.push({ token: j.body.participantToken });
     }
 
     // host submit (socket), guests submit (REST)
-    const hs = await emit<{ ok: boolean }>('submit', { sessionId, token: hostPT, prefs: prefs({ cuisines: { Japanese: 'like' } }) });
+    const hs = await emit<{ ok: boolean }>('submit', {
+      sessionId,
+      token: hostPT,
+      prefs: prefs({ cuisines: { Japanese: 'like' } }),
+    });
     expect(hs.ok).toBe(true);
     for (const g of guests) {
-      const s = await request(app).post(`/api/sessions/${code}/submit`).send({
-        token: g.token, prefs: prefs({ cuisines: { Lebanese: 'like' } }),
-      });
+      const s = await request(app)
+        .post(`/api/sessions/${code}/submit`)
+        .send({
+          token: g.token,
+          prefs: prefs({ cuisines: { Lebanese: 'like' } }),
+        });
       expect(s.status).toBe(200);
     }
 
@@ -109,7 +130,9 @@ describe('server API + socket smoke', () => {
     expect(result).not.toHaveProperty('explanation');
     expect(result).not.toHaveProperty('scoringSheet');
     expect(result.winner).not.toHaveProperty('perPerson');
-    expect(JSON.stringify(result)).not.toMatch(/perPerson|scoringSheet|meanUtility|minUtility|cuisineScore|priceScore|distanceScore|explanation/);
+    expect(JSON.stringify(result)).not.toMatch(
+      /perPerson|scoringSheet|meanUtility|minUtility|cuisineScore|priceScore|distanceScore|explanation/,
+    );
 
     // state broadcasts were received
     await new Promise((r) => setTimeout(r, 100));
@@ -131,42 +154,75 @@ describe('server API + socket smoke', () => {
   });
 
   it('publishes only an explicitly consented host nickname in invite metadata', async () => {
-    const hidden = await request(app).post('/api/sessions').send({
-      areaLabel: 'Qurum', center: { lat: 23.588, lng: 58.3829 }, radiusKm: 10,
-      nickname: 'Private Host', color: 0, allowReruns: true, shareHostNickname: false,
-    });
+    const hidden = await request(app)
+      .post('/api/sessions')
+      .send({
+        areaLabel: 'Qurum',
+        center: { lat: 23.588, lng: 58.3829 },
+        radiusKm: 10,
+        nickname: 'Private Host',
+        color: 0,
+        allowReruns: true,
+        shareHostNickname: false,
+      });
     const hiddenInvite = await request(app).get(`/api/sessions/${hidden.body.code}`);
     expect(hiddenInvite.body.invite).not.toHaveProperty('hostNickname');
 
-    const shared = await request(app).post('/api/sessions').send({
-      areaLabel: 'Qurum', center: { lat: 23.588, lng: 58.3829 }, radiusKm: 10,
-      nickname: 'Public Host', color: 0, allowReruns: true, shareHostNickname: true,
-    });
+    const shared = await request(app)
+      .post('/api/sessions')
+      .send({
+        areaLabel: 'Qurum',
+        center: { lat: 23.588, lng: 58.3829 },
+        radiusKm: 10,
+        nickname: 'Public Host',
+        color: 0,
+        allowReruns: true,
+        shareHostNickname: true,
+      });
     const sharedInvite = await request(app).get(`/api/sessions/${shared.body.code}`);
-    expect(sharedInvite.body.invite).toEqual(expect.objectContaining({
-      areaLabel: 'Qurum', hostNickname: 'Public Host', joinable: true,
-    }));
+    expect(sharedInvite.body.invite).toEqual(
+      expect.objectContaining({
+        areaLabel: 'Qurum',
+        hostNickname: 'Public Host',
+        joinable: true,
+      }),
+    );
     expect(JSON.stringify(sharedInvite.body)).not.toMatch(/participant|token|prefs/i);
 
-    const unnamed = await request(app).post('/api/sessions').send({
-      areaLabel: 'Qurum', center: { lat: 23.588, lng: 58.3829 }, radiusKm: 10,
-      nickname: '', color: 0, allowReruns: true, shareHostNickname: true,
-    });
+    const unnamed = await request(app)
+      .post('/api/sessions')
+      .send({
+        areaLabel: 'Qurum',
+        center: { lat: 23.588, lng: 58.3829 },
+        radiusKm: 10,
+        nickname: '',
+        color: 0,
+        allowReruns: true,
+        shareHostNickname: true,
+      });
     const unnamedInvite = await request(app).get(`/api/sessions/${unnamed.body.code}`);
     expect(unnamedInvite.body.invite).not.toHaveProperty('hostNickname');
   });
 
   it('keeps duplicate Arabic identities distinct and rejects empty sanitized names', async () => {
-    const create = await request(app).post('/api/sessions').send({
-      areaLabel: 'Qurum', center: { lat: 23.588, lng: 58.3829 }, radiusKm: 10,
-      nickname: 'Host', color: 0, allowReruns: true,
-    });
+    const create = await request(app)
+      .post('/api/sessions')
+      .send({
+        areaLabel: 'Qurum',
+        center: { lat: 23.588, lng: 58.3829 },
+        radiusKm: 10,
+        nickname: 'Host',
+        color: 0,
+        allowReruns: true,
+      });
     const { code } = create.body;
 
     const empty = await request(app).post('/api/sessions/join').send({ code, nickname: '<>&', color: 1 });
     expect(empty.status).toBe(400);
 
-    const deceptive = await request(app).post('/api/sessions/join').send({ code, nickname: '\u202eمريم\u202c', color: 1 });
+    const deceptive = await request(app)
+      .post('/api/sessions/join')
+      .send({ code, nickname: '\u202eمريم\u202c', color: 1 });
     const invisible = await request(app).post('/api/sessions/join').send({ code, nickname: 'مر\u200bيم', color: 1 });
     expect(deceptive.status).toBe(400);
     expect(invisible.status).toBe(400);
@@ -178,12 +234,21 @@ describe('server API + socket smoke', () => {
     expect(first.body.participantId).not.toBe(second.body.participantId);
     expect(first.body.state.selfParticipantId).toBe(first.body.participantId);
     expect(second.body.state.selfParticipantId).toBe(second.body.participantId);
-    expect(first.body.state.participants.find((participant: { id: string }) => participant.id === first.body.participantId).nickname).toBe('مريم');
+    expect(
+      first.body.state.participants.find((participant: { id: string }) => participant.id === first.body.participantId)
+        .nickname,
+    ).toBe('مريم');
 
-    const otherSession = await request(app).post('/api/sessions').send({
-      areaLabel: 'Muttrah', center: { lat: 23.6, lng: 58.4 }, radiusKm: 3,
-      nickname: 'Other', color: 0, allowReruns: false,
-    });
+    const otherSession = await request(app)
+      .post('/api/sessions')
+      .send({
+        areaLabel: 'Muttrah',
+        center: { lat: 23.6, lng: 58.4 },
+        radiusKm: 3,
+        nickname: 'Other',
+        color: 0,
+        allowReruns: false,
+      });
     const crossSession = await request(app)
       .get(`/api/sessions/${code}/state`)
       .set('Authorization', `Bearer ${otherSession.body.participantToken}`);
@@ -192,8 +257,12 @@ describe('server API + socket smoke', () => {
 
   it('rejects oversized REST and socket payloads without affecting the server', async () => {
     const oversizedInput = {
-      areaLabel: 'x'.repeat(70 * 1024), center: { lat: 23.588, lng: 58.3829 }, radiusKm: 10,
-      nickname: 'Large', color: 0, allowReruns: true,
+      areaLabel: 'x'.repeat(70 * 1024),
+      center: { lat: 23.588, lng: 58.3829 },
+      radiusKm: 10,
+      nickname: 'Large',
+      color: 0,
+      allowReruns: true,
     };
     const rest = await request(app).post('/api/sessions').send(oversizedInput);
     expect(rest.status).toBe(413);
@@ -219,14 +288,20 @@ describe('server API + socket smoke', () => {
     const expirySocket = ioc(url, { transports: ['websocket'] });
     await new Promise<void>((resolve) => expirySocket.on('connect', () => resolve()));
     try {
-      const create = await request(app).post('/api/sessions').send({
-        areaLabel: 'Qurum', center: { lat: 23.588, lng: 58.3829 }, radiusKm: 10,
-        nickname: 'Host', color: 0, allowReruns: true,
-      });
+      const create = await request(app)
+        .post('/api/sessions')
+        .send({
+          areaLabel: 'Qurum',
+          center: { lat: 23.588, lng: 58.3829 },
+          radiusKm: 10,
+          nickname: 'Host',
+          color: 0,
+          allowReruns: true,
+        });
       const { code, sessionId, participantToken } = create.body;
       await new Promise((resolve) => expirySocket.emit('attach', { sessionId, token: participantToken }, resolve));
       const expiredEvent = new Promise<void>((resolve) => expirySocket.once('session-expired', () => resolve()));
-      const stored = getByIdOrCode(sessionId)!;
+      const stored = store.get(sessionId)!;
       stored.createdAt = Date.now() - SESSION_TTL_MS;
 
       const expired = await request(app)
@@ -235,15 +310,24 @@ describe('server API + socket smoke', () => {
       expect(expired.status).toBe(410);
       expect(expired.body).toEqual({ error: 'Session expired', errorCode: 'expired' });
       await expiredEvent;
-      expect((await request(app).get(`/api/sessions/${sessionId}`)).body).toEqual({ error: 'Session expired', errorCode: 'expired' });
+      expect((await request(app).get(`/api/sessions/${sessionId}`)).body).toEqual({
+        error: 'Session expired',
+        errorCode: 'expired',
+      });
       const expiredJoin = await request(app).post('/api/sessions/join').send({ code, nickname: 'Late', color: 1 });
       expect(expiredJoin.status).toBe(410);
       expect(expiredJoin.body).toEqual({ error: 'Session expired', errorCode: 'expired' });
 
-      const endedCreate = await request(app).post('/api/sessions').send({
-        areaLabel: 'Qurum', center: { lat: 23.588, lng: 58.3829 }, radiusKm: 10,
-        nickname: 'Host', color: 0, allowReruns: false,
-      });
+      const endedCreate = await request(app)
+        .post('/api/sessions')
+        .send({
+          areaLabel: 'Qurum',
+          center: { lat: 23.588, lng: 58.3829 },
+          radiusKm: 10,
+          nickname: 'Host',
+          color: 0,
+          allowReruns: false,
+        });
       const ended = await request(app).post(`/api/sessions/${endedCreate.body.code}/end`).send({
         hostToken: endedCreate.body.hostToken,
       });
@@ -262,16 +346,25 @@ describe('server API + socket smoke', () => {
     const hostSocket = ioc(url, { transports: ['websocket'] });
     const firstGuestSocket = ioc(url, { transports: ['websocket'] });
     const secondGuestSocket = ioc(url, { transports: ['websocket'] });
-    await Promise.all([hostSocket, firstGuestSocket, secondGuestSocket].map((socket) =>
-      new Promise<void>((resolve) => socket.on('connect', () => resolve()))));
-    const emit = <T,>(socket: Socket, event: string, data: unknown) =>
+    await Promise.all(
+      [hostSocket, firstGuestSocket, secondGuestSocket].map(
+        (socket) => new Promise<void>((resolve) => socket.on('connect', () => resolve())),
+      ),
+    );
+    const emit = <T>(socket: Socket, event: string, data: unknown) =>
       new Promise<T>((resolve) => socket.emit(event, data, (result: T) => resolve(result)));
 
     try {
-      const create = await request(app).post('/api/sessions').send({
-        areaLabel: 'Qurum', center: { lat: 23.588, lng: 58.3829 }, radiusKm: 10,
-        nickname: 'Host', color: 0, allowReruns: true,
-      });
+      const create = await request(app)
+        .post('/api/sessions')
+        .send({
+          areaLabel: 'Qurum',
+          center: { lat: 23.588, lng: 58.3829 },
+          radiusKm: 10,
+          nickname: 'Host',
+          color: 0,
+          allowReruns: true,
+        });
       const { sessionId, code, hostToken, participantToken: hostParticipantToken, participantId: hostId } = create.body;
       const firstGuest = await request(app).post('/api/sessions/join').send({ code, nickname: 'First', color: 1 });
       const secondGuest = await request(app).post('/api/sessions/join').send({ code, nickname: 'Second', color: 2 });
@@ -284,15 +377,23 @@ describe('server API + socket smoke', () => {
 
       let hostWasRemoved = false;
       let secondGuestWasRemoved = false;
-      hostSocket.on('removed', () => { hostWasRemoved = true; });
-      secondGuestSocket.on('removed', () => { secondGuestWasRemoved = true; });
+      hostSocket.on('removed', () => {
+        hostWasRemoved = true;
+      });
+      secondGuestSocket.on('removed', () => {
+        secondGuestWasRemoved = true;
+      });
       const firstGuestRemoved = new Promise<void>((resolve) => firstGuestSocket.once('removed', () => resolve()));
-      const hostSeesFirstRemoval = new Promise<SessionSnapshot>((resolve) => hostSocket.on('state', (state: SessionSnapshot) => {
-        if (!state.participants.some((participant) => participant.id === firstGuest.body.participantId)) resolve(state);
-      }));
+      const hostSeesFirstRemoval = new Promise<SessionSnapshot>((resolve) =>
+        hostSocket.on('state', (state: SessionSnapshot) => {
+          if (!state.participants.some((participant) => participant.id === firstGuest.body.participantId))
+            resolve(state);
+        }),
+      );
 
       const removed = await emit<{ ok?: boolean; error?: string }>(hostSocket, 'remove-participant', {
-        hostToken, participantId: firstGuest.body.participantId,
+        hostToken,
+        participantId: firstGuest.body.participantId,
       });
       expect(removed).toEqual({ ok: true });
       await firstGuestRemoved;
@@ -318,10 +419,14 @@ describe('server API + socket smoke', () => {
       expect(hostCannotLeave.status).toBe(403);
 
       const raceGuest = await request(app).post('/api/sessions/join').send({ code, nickname: 'Race', color: 3 });
-      const raceStatuses = await Promise.all([1, 2].map(() => request(app)
-        .post(`/api/sessions/${code}/participants/${raceGuest.body.participantId}/remove`)
-        .send({ hostToken })
-        .then((response) => response.status)));
+      const raceStatuses = await Promise.all(
+        [1, 2].map(() =>
+          request(app)
+            .post(`/api/sessions/${code}/participants/${raceGuest.body.participantId}/remove`)
+            .send({ hostToken })
+            .then((response) => response.status),
+        ),
+      );
       expect(raceStatuses.sort()).toEqual([200, 404]);
 
       const finalGuest = await request(app).post('/api/sessions/join').send({ code, nickname: 'Final', color: 1 });
@@ -347,20 +452,29 @@ describe('server API + socket smoke', () => {
   it('replays every mutation once across REST and sockets and rejects request-ID conflicts', async () => {
     const createRequestId = '00000000-0000-4000-8000-000000000001';
     const createInput = {
-      areaLabel: 'Qurum', center: { lat: 23.588, lng: 58.3829 }, radiusKm: 10,
-      nickname: 'Replay Host', color: 0, allowReruns: true, requestId: createRequestId,
+      areaLabel: 'Qurum',
+      center: { lat: 23.588, lng: 58.3829 },
+      radiusKm: 10,
+      nickname: 'Replay Host',
+      color: 0,
+      allowReruns: true,
+      requestId: createRequestId,
     };
     const firstCreate = await request(app).post('/api/sessions').send(createInput);
     const replayedCreate = await request(app).post('/api/sessions').send(createInput);
     expect(replayedCreate.status).toBe(201);
     expect(replayedCreate.body).toEqual(firstCreate.body);
-    const createConflict = await request(app).post('/api/sessions').send({ ...createInput, areaLabel: 'Muttrah' });
+    const createConflict = await request(app)
+      .post('/api/sessions')
+      .send({ ...createInput, areaLabel: 'Muttrah' });
     expect(createConflict.status).toBe(409);
     expect(createConflict.body).toEqual({ error: 'Request ID already used', errorCode: 'unknown' });
 
     const { code, sessionId, participantToken: hostParticipantToken, hostToken } = firstCreate.body;
     const joinInput = {
-      code, nickname: 'Replay Guest', color: 1,
+      code,
+      nickname: 'Replay Guest',
+      color: 1,
       requestId: '00000000-0000-4000-8000-000000000002',
     };
     const firstJoin = await request(app).post('/api/sessions/join').send(joinInput);
@@ -370,32 +484,39 @@ describe('server API + socket smoke', () => {
 
     const hostPrefs = prefs({ cuisines: { Japanese: 'like' } });
     const submitInput = {
-      token: hostParticipantToken, prefs: hostPrefs,
+      token: hostParticipantToken,
+      prefs: hostPrefs,
       requestId: '00000000-0000-4000-8000-000000000003',
     };
     const firstSubmit = await request(app).post(`/api/sessions/${sessionId}/submit`).send(submitInput);
     const replayedSubmit = await request(app).post(`/api/sessions/${sessionId}/submit`).send(submitInput);
     expect(replayedSubmit.body).toEqual(firstSubmit.body);
-    const submitConflict = await request(app).post(`/api/sessions/${sessionId}/submit`).send({
-      ...submitInput, prefs: prefs({ cuisines: { Italian: 'dislike' } }),
-    });
+    const submitConflict = await request(app)
+      .post(`/api/sessions/${sessionId}/submit`)
+      .send({
+        ...submitInput,
+        prefs: prefs({ cuisines: { Italian: 'dislike' } }),
+      });
     expect(submitConflict.status).toBe(409);
 
-    await request(app).post(`/api/sessions/${sessionId}/submit`).send({
-      token: firstJoin.body.participantToken,
-      prefs: prefs({ cuisines: { Lebanese: 'like' } }),
-      requestId: '00000000-0000-4000-8000-000000000004',
-    });
+    await request(app)
+      .post(`/api/sessions/${sessionId}/submit`)
+      .send({
+        token: firstJoin.body.participantToken,
+        prefs: prefs({ cuisines: { Lebanese: 'like' } }),
+        requestId: '00000000-0000-4000-8000-000000000004',
+      });
     const revealInput = { hostToken, requestId: '00000000-0000-4000-8000-000000000005' };
-    const reveals = await Promise.all([1, 2].map(() =>
-      request(app).post(`/api/sessions/${sessionId}/reveal`).send(revealInput)));
+    const reveals = await Promise.all(
+      [1, 2].map(() => request(app).post(`/api/sessions/${sessionId}/reveal`).send(revealInput)),
+    );
     expect(reveals.map((response) => response.status)).toEqual([200, 200]);
     let state = await request(app)
       .get(`/api/sessions/${sessionId}/state`)
       .set('Authorization', `Bearer ${hostParticipantToken}`);
     expect(state.body.state.result.round).toBe(1);
 
-    const emit = <T,>(event: string, data: unknown) =>
+    const emit = <T>(event: string, data: unknown) =>
       new Promise<T>((resolve) => sock.emit(event, data, (result: T) => resolve(result)));
     await emit('attach', { sessionId, token: hostParticipantToken });
     const rerunInput = { hostToken, requestId: '00000000-0000-4000-8000-000000000006' };
@@ -408,22 +529,34 @@ describe('server API + socket smoke', () => {
     expect(state.body.state.result.round).toBe(2);
     expect(state.body.state.rerunsUsed).toBe(1);
 
-    const lifecycleCreate = await request(app).post('/api/sessions').send({
-      ...createInput, nickname: 'Lifecycle Host', requestId: '00000000-0000-4000-8000-000000000007',
-    });
+    const lifecycleCreate = await request(app)
+      .post('/api/sessions')
+      .send({
+        ...createInput,
+        nickname: 'Lifecycle Host',
+        requestId: '00000000-0000-4000-8000-000000000007',
+      });
     const lifecycleGuest = await request(app).post('/api/sessions/join').send({
-      code: lifecycleCreate.body.code, nickname: 'Leaving', color: 1,
+      code: lifecycleCreate.body.code,
+      nickname: 'Leaving',
+      color: 1,
       requestId: '00000000-0000-4000-8000-000000000008',
     });
     const leaveInput = {
       token: lifecycleGuest.body.participantToken,
       requestId: '00000000-0000-4000-8000-000000000009',
     };
-    expect((await request(app).post(`/api/sessions/${lifecycleCreate.body.sessionId}/leave`).send(leaveInput)).status).toBe(200);
-    expect((await request(app).post(`/api/sessions/${lifecycleCreate.body.sessionId}/leave`).send(leaveInput)).status).toBe(200);
+    expect(
+      (await request(app).post(`/api/sessions/${lifecycleCreate.body.sessionId}/leave`).send(leaveInput)).status,
+    ).toBe(200);
+    expect(
+      (await request(app).post(`/api/sessions/${lifecycleCreate.body.sessionId}/leave`).send(leaveInput)).status,
+    ).toBe(200);
 
     const removable = await request(app).post('/api/sessions/join').send({
-      code: lifecycleCreate.body.code, nickname: 'Removable', color: 2,
+      code: lifecycleCreate.body.code,
+      nickname: 'Removable',
+      color: 2,
       requestId: '00000000-0000-4000-8000-000000000010',
     });
     const removeInput = {
@@ -438,12 +571,16 @@ describe('server API + socket smoke', () => {
       hostToken: lifecycleCreate.body.hostToken,
       requestId: '00000000-0000-4000-8000-000000000012',
     };
-    expect((await request(app).post(`/api/sessions/${lifecycleCreate.body.sessionId}/end`).send(endInput)).status).toBe(200);
-    expect((await request(app).post(`/api/sessions/${lifecycleCreate.body.sessionId}/end`).send(endInput)).status).toBe(200);
+    expect((await request(app).post(`/api/sessions/${lifecycleCreate.body.sessionId}/end`).send(endInput)).status).toBe(
+      200,
+    );
+    expect((await request(app).post(`/api/sessions/${lifecycleCreate.body.sessionId}/end`).send(endInput)).status).toBe(
+      200,
+    );
   });
 
   it('rate limits repeated socket join attempts', async () => {
-    const emit = <T,>(event: string, data: unknown) =>
+    const emit = <T>(event: string, data: unknown) =>
       new Promise<T>((resolve) => sock.emit(event, data, (result: T) => resolve(result)));
     let response: { error?: string } = {};
     for (let attempt = 0; attempt < 21; attempt++) {
@@ -453,15 +590,19 @@ describe('server API + socket smoke', () => {
   });
 
   it('returns a safe no-match after the only compatible restaurant is excluded', async () => {
-    const create = await request(app).post('/api/sessions').send({
-      areaLabel: 'Qurum', center: { lat: 23.588, lng: 58.3829 }, radiusKm: 10,
-      nickname: 'Host', color: 0, allowReruns: true,
-    });
+    const create = await request(app)
+      .post('/api/sessions')
+      .send({
+        areaLabel: 'Qurum',
+        center: { lat: 23.588, lng: 58.3829 },
+        radiusKm: 10,
+        nickname: 'Host',
+        color: 0,
+        allowReruns: true,
+      });
     const { code, hostToken, participantToken: hostTokenForVote } = create.body;
     const join = await request(app).post('/api/sessions/join').send({ code, nickname: 'Guest', color: 1 });
-    const dietaryTypes: Prefs['dietary'][number]['type'][] = [
-      'vegetarian', 'vegan', 'halal', 'kosher', 'gluten-free',
-    ];
+    const dietaryTypes: Prefs['dietary'][number]['type'][] = ['vegetarian', 'vegan', 'halal', 'kosher', 'gluten-free'];
     const strictAll = prefs({ dietary: dietaryTypes.map((type) => ({ type, strict: true })) });
 
     for (const token of [hostTokenForVote, join.body.participantToken]) {
@@ -485,7 +626,11 @@ describe('server API + socket smoke', () => {
       .get(`/api/sessions/${code}/state`)
       .set('Authorization', `Bearer ${hostTokenForVote}`);
     expect(noMatchState.body.state.phase).toBe('blocked-no-match');
-    expect(noMatchState.body.state.result).toMatchObject({ kind: 'no-verified-match', algorithmVersion: ALGORITHM_VERSION, round: 2 });
+    expect(noMatchState.body.state.result).toMatchObject({
+      kind: 'no-verified-match',
+      algorithmVersion: ALGORITHM_VERSION,
+      round: 2,
+    });
     expect(noMatchState.body.state.result).not.toHaveProperty('winner');
 
     const rerunAgain = await request(app).post(`/api/sessions/${code}/rerun`).send({ hostToken });
@@ -494,7 +639,8 @@ describe('server API + socket smoke', () => {
     expect(lateJoin.status).toBe(409);
     expect(lateJoin.body.errorCode).toBe('locked');
     const lateSubmit = await request(app).post(`/api/sessions/${code}/submit`).send({
-      token: hostTokenForVote, prefs: strictAll,
+      token: hostTokenForVote,
+      prefs: strictAll,
     });
     expect(lateSubmit.status).toBe(409);
     expect(lateSubmit.body.errorCode).toBe('locked');
@@ -507,14 +653,22 @@ describe('server API + socket smoke', () => {
     expect(nope.status).toBe(404);
     expect(nope.body.errorCode).toBe('not-found');
 
-    const create = await request(app).post('/api/sessions').send({
-      areaLabel: 'Qurum', center: { lat: 23.588, lng: 58.3829 }, radiusKm: 10,
-      nickname: 'Host', color: 0, allowReruns: true,
-    });
-    const unsupportedDietaryMode = await request(app).post(`/api/sessions/${create.body.code}/submit`).send({
-      token: create.body.participantToken,
-      prefs: prefs({ dietary: [{ type: 'halal', strict: false }] }),
-    });
+    const create = await request(app)
+      .post('/api/sessions')
+      .send({
+        areaLabel: 'Qurum',
+        center: { lat: 23.588, lng: 58.3829 },
+        radiusKm: 10,
+        nickname: 'Host',
+        color: 0,
+        allowReruns: true,
+      });
+    const unsupportedDietaryMode = await request(app)
+      .post(`/api/sessions/${create.body.code}/submit`)
+      .send({
+        token: create.body.participantToken,
+        prefs: { ...prefs({}), dietary: [{ type: 'halal', strict: false }] },
+      });
     expect(unsupportedDietaryMode.status).toBe(400);
     expect(unsupportedDietaryMode.body.errorCode).toBe('invalid');
   });

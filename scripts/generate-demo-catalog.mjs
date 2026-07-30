@@ -2,8 +2,18 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
 const cuisines = [
-  'Italian', 'Indian', 'Lebanese', 'Japanese', 'Turkish', 'American',
-  'Seafood', 'Vegetarian', 'Fast Food', 'Cafe', 'Omani', 'Thai',
+  'Italian',
+  'Indian',
+  'Lebanese',
+  'Japanese',
+  'Turkish',
+  'American',
+  'Seafood',
+  'Vegetarian',
+  'Fast Food',
+  'Cafe',
+  'Omani',
+  'Thai',
 ];
 const dietaryPatterns = [
   ['vegetarian', 'halal'],
@@ -38,7 +48,8 @@ const output = fileURLToPath(new URL('../shared/restaurants.json', import.meta.u
 const serialized = `${JSON.stringify(catalog, null, 2)}\n`;
 if (process.argv.includes('--check')) {
   const current = await readFile(output, 'utf8');
-  if (current !== serialized) throw new Error('shared/restaurants.json is not generated from scripts/generate-demo-catalog.mjs');
+  if (current !== serialized)
+    throw new Error('shared/restaurants.json is not generated from scripts/generate-demo-catalog.mjs');
   console.log('Fictional catalog is reproducible.');
 } else {
   await writeFile(output, serialized);

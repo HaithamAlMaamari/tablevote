@@ -14,15 +14,24 @@ function RouteEffects() {
   const { pathname } = useLocation();
 
   useEffect(() => {
-    const title = pathname === '/' ? 'TableVote'
-      : pathname === '/create' ? 'Create a session | TableVote'
-        : pathname.startsWith('/join') ? 'Join a session | TableVote'
-          : pathname.endsWith('/host') ? 'Host session | TableVote'
-            : pathname.endsWith('/preferences') ? 'Your tastes | TableVote'
-              : pathname.endsWith('/lobby') ? 'Session lobby | TableVote'
-                : pathname.endsWith('/reveal') ? 'Winner reveal | TableVote'
-                  : pathname.endsWith('/result') ? 'Session result | TableVote'
-                    : 'TableVote';
+    const title =
+      pathname === '/'
+        ? 'TableVote'
+        : pathname === '/create'
+          ? 'Create a session | TableVote'
+          : pathname.startsWith('/join')
+            ? 'Join a session | TableVote'
+            : pathname.endsWith('/host')
+              ? 'Host session | TableVote'
+              : pathname.endsWith('/preferences')
+                ? 'Your tastes | TableVote'
+                : pathname.endsWith('/lobby')
+                  ? 'Session lobby | TableVote'
+                  : pathname.endsWith('/reveal')
+                    ? 'Winner reveal | TableVote'
+                    : pathname.endsWith('/result')
+                      ? 'Session result | TableVote'
+                      : 'TableVote';
     document.title = title;
 
     // The code-entry route intentionally focuses its first input.
@@ -42,10 +51,19 @@ function RouteEffects() {
 
 export default function App() {
   useEffect(() => {
-    void import('./lib/transport').then(({ sweepExpiredSessionStorage }) => sweepExpiredSessionStorage());
+    void import('./lib/identity').then(({ sweepExpiredSessionStorage }) => sweepExpiredSessionStorage());
   }, []);
   return (
-    <Suspense fallback={<div role="status" className="flex min-h-dvh items-center justify-center bg-cream text-[14px] font-semibold text-ink-soft">Loading TableVote…</div>}>
+    <Suspense
+      fallback={
+        <div
+          role="status"
+          className="flex min-h-dvh items-center justify-center bg-canvas font-mono text-[13px] font-medium uppercase tracking-widest text-ink-muted"
+        >
+          Printing ballot…
+        </div>
+      }
+    >
       <RouteEffects />
       <Routes>
         <Route path="/" element={<Landing />} />

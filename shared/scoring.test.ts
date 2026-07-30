@@ -1,8 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { computeResult, priceScore, utility } from './scoring';
 import {
-  ALGORITHM_VERSION, DIETARY_TYPES, type DietaryEvidence, type DietaryEvidenceState, type DietaryType,
-  type MatchedVoteResult, type Participant, type Prefs, type Restaurant, type VoteResult,
+  ALGORITHM_VERSION,
+  DIETARY_TYPES,
+  type DietaryEvidence,
+  type DietaryEvidenceState,
+  type DietaryType,
+  type MatchedVoteResult,
+  type Participant,
+  type Prefs,
+  type Restaurant,
+  type VoteResult,
 } from './types';
 import { normalizeDemoRestaurants, type DemoRestaurantInput } from './catalog';
 
@@ -10,21 +18,38 @@ type RestaurantOverrides = Partial<Restaurant> & { id: string; dietaryOptions?: 
 
 function R(over: RestaurantOverrides): Restaurant {
   const { dietaryOptions = [], dietaryEvidence, ...rest } = over;
-  const restaurant = normalizeDemoRestaurants([{
-    name: over.id, cuisines: ['Italian'], priceTier: 2, rating: 4.5,
-    distanceKm: 1, lat: 23.5, lng: 58.3, address: 'x',
-    dietaryOptions, openNow: true, ...rest,
-  } as DemoRestaurantInput])[0];
+  const restaurant = normalizeDemoRestaurants([
+    {
+      name: over.id,
+      cuisines: ['Italian'],
+      priceTier: 2,
+      rating: 4.5,
+      distanceKm: 1,
+      lat: 23.5,
+      lng: 58.3,
+      address: 'x',
+      dietaryOptions,
+      openNow: true,
+      ...rest,
+    } as DemoRestaurantInput,
+  ])[0];
   return dietaryEvidence ? { ...restaurant, dietaryEvidence } : restaurant;
 }
 
 function evidence(states: Partial<Record<DietaryType, DietaryEvidenceState>>): Restaurant['dietaryEvidence'] {
-  return Object.fromEntries(DIETARY_TYPES.map((type) => [type, {
-    state: states[type] ?? 'unknown', source: 'test-fixture', checkedAt: '2026-07-25T00:00:00.000Z',
-  } satisfies DietaryEvidence])) as Restaurant['dietaryEvidence'];
+  return Object.fromEntries(
+    DIETARY_TYPES.map((type) => [
+      type,
+      {
+        state: states[type] ?? 'unknown',
+        source: 'test-fixture',
+        checkedAt: '2026-07-25T00:00:00.000Z',
+      } satisfies DietaryEvidence,
+    ]),
+  ) as Restaurant['dietaryEvidence'];
 }
 function P(nick: string, prefs: Prefs): Participant {
-  return { id: `id-${nick}`, token: nick, nickname: nick, color: 0, prefs, submittedAt: 1, isHost: false };
+  return { id: `id-${nick}`, token: nick, nickname: nick, color: 0, prefs, isHost: false };
 }
 function prefs(over: Partial<Prefs>): Prefs {
   return { cuisines: {}, budget: 4, maxDistanceKm: null, dietary: [], ...over };
@@ -54,11 +79,13 @@ describe('hard filter', () => {
     expect(result.winner.restaurant.id).toBe(`${type}-supported`);
     expect(result.eliminatedCount).toBe(3);
 
-    const rerun = computeResult(
-      `evidence-${type}`, participants, restaurants, [`${type}-supported`], 2, [`${type}-supported`],
-    );
+    const rerun = computeResult(`evidence-${type}`, participants, restaurants, [`${type}-supported`], 2, [
+      `${type}-supported`,
+    ]);
     expect(rerun).toMatchObject({
-      kind: 'no-verified-match', algorithmVersion: ALGORITHM_VERSION, round: 2,
+      kind: 'no-verified-match',
+      algorithmVersion: ALGORITHM_VERSION,
+      round: 2,
     });
   });
 
@@ -78,7 +105,13 @@ describe('hard filter', () => {
     const restaurants = [R({ id: 'meat', dietaryOptions: ['halal'] })];
     const ps = [P('Vee', prefs({ dietary: [{ type: 'vegetarian', strict: true }] })), P('Jo', prefs({}))];
     const res = computeResult('s2', ps, restaurants);
-    expect(res).toEqual({ kind: 'no-verified-match', algorithmVersion: ALGORITHM_VERSION, eliminatedCount: 1, round: 1, previousWinners: [] });
+    expect(res).toEqual({
+      kind: 'no-verified-match',
+      algorithmVersion: ALGORITHM_VERSION,
+      eliminatedCount: 1,
+      round: 1,
+      previousWinners: [],
+    });
 
     const ps2 = [P('Sal', prefs({ dietary: [{ type: 'halal', strict: true }] }))];
     const res2 = computeResult('s2b', ps2, [R({ id: 'non-halal', dietaryOptions: [] })]);
@@ -95,7 +128,11 @@ describe('hard filter', () => {
     ];
     expect(computeResult('mixed', ps, restaurants).kind).toBe('no-verified-match');
     expect(computeResult('excluded', ps, restaurants, ['halal-only'], 2, ['Halal only'])).toEqual({
-      kind: 'no-verified-match', algorithmVersion: ALGORITHM_VERSION, eliminatedCount: 0, round: 2, previousWinners: ['Halal only'],
+      kind: 'no-verified-match',
+      algorithmVersion: ALGORITHM_VERSION,
+      eliminatedCount: 0,
+      round: 2,
+      previousWinners: ['Halal only'],
     });
   });
 });
@@ -107,7 +144,13 @@ describe('min-utility protection', () => {
     const meat = prefs({ cuisines: { American: 'like', Vegetarian: 'neutral' } });
     const ps = [
       ...Array.from({ length: 5 }, (_, i) => P(`meat${i}`, meat)),
-      P('Vee', prefs({ dietary: [{ type: 'vegetarian', strict: true }], cuisines: { Vegetarian: 'like', American: 'dislike' } })),
+      P(
+        'Vee',
+        prefs({
+          dietary: [{ type: 'vegetarian', strict: true }],
+          cuisines: { Vegetarian: 'like', American: 'dislike' },
+        }),
+      ),
     ];
     const res = matched(computeResult('s3', ps, [steakhouse, vegFriendly]));
     expect(res.winner.restaurant.id).toBe('veg-friendly');
@@ -155,10 +198,7 @@ describe('flexible participants', () => {
 
 describe('tie ladder', () => {
   it('least-misery fires before coin flip', () => {
-    const ps = [
-      P('p1', prefs({ cuisines: { Italian: 'like' } })),
-      P('p2', prefs({ budget: 1, maxDistanceKm: 10 })),
-    ];
+    const ps = [P('p1', prefs({ cuisines: { Italian: 'like' } })), P('p2', prefs({ budget: 1, maxDistanceKm: 10 }))];
     const ra = R({ id: 'A', cuisines: ['Italian'], priceTier: 3, rating: 4.55, distanceKm: 9 });
     const rb = R({ id: 'B', cuisines: ['Italian'], priceTier: 1, rating: 4.45, distanceKm: 9 });
     const res = matched(computeResult('tie-test', ps, [ra, rb]));
@@ -212,7 +252,10 @@ describe('regressions (verify pass)', () => {
     expect(again.top3.map((candidate) => candidate.restaurant.id)).toEqual(['dupA', 'dupB']);
     // Session identifiers cannot alter identical ranking inputs.
     const winners = new Set(
-      Array.from({ length: 12 }, (_, i) => matched(computeResult(`tie-seed-${i + 1}`, ps, [a, b])).winner.restaurant.id),
+      Array.from(
+        { length: 12 },
+        (_, i) => matched(computeResult(`tie-seed-${i + 1}`, ps, [a, b])).winner.restaurant.id,
+      ),
     );
     expect(winners).toEqual(new Set(['dupA']));
   });
@@ -255,7 +298,13 @@ describe('regressions (verify pass)', () => {
     const restaurants = [R({ id: 'non-halal', dietaryOptions: [] })];
     const ps = [P('Sal', prefs({ dietary: [{ type: 'halal', strict: true }] }))];
     const res = computeResult('fb', ps, restaurants);
-    expect(res).toEqual({ kind: 'no-verified-match', algorithmVersion: ALGORITHM_VERSION, eliminatedCount: 1, round: 1, previousWinners: [] });
+    expect(res).toEqual({
+      kind: 'no-verified-match',
+      algorithmVersion: ALGORITHM_VERSION,
+      eliminatedCount: 1,
+      round: 1,
+      previousWinners: [],
+    });
     expect('winner' in res).toBe(false);
   });
 });
@@ -270,7 +319,10 @@ describe('price utility', () => {
   });
 
   it('utility stays within [0,1]', () => {
-    const u = utility(prefs({ cuisines: { Italian: 'like' } }), R({ id: 'x', rating: 5, priceTier: 1, distanceKm: 0.2 }));
+    const u = utility(
+      prefs({ cuisines: { Italian: 'like' } }),
+      R({ id: 'x', rating: 5, priceTier: 1, distanceKm: 0.2 }),
+    );
     expect(u).toBeLessThanOrEqual(1);
     expect(u).toBeGreaterThanOrEqual(0);
   });

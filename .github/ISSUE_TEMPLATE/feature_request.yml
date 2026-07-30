@@ -1,29 +1,50 @@
 name: Feature request
-description: An idea to make group dinners better
-title: "[Feature]: "
+description: Propose a scoped change to the documented prototype
+title: '[Feature]: '
 labels: [enhancement]
 body:
   - type: textarea
     id: problem
     attributes:
-      label: What problem does this solve?
-      description: Describe the pain point at the table.
-      placeholder: When someone joins late, they don't know voting already closed…
+      label: Problem
+      description: Describe a concrete user or contributor problem, not only a desired implementation.
+      placeholder: A reconnecting participant cannot tell whether the current snapshot was reconciled before controls become active.
     validations:
       required: true
   - type: textarea
     id: proposal
     attributes:
-      label: Proposed solution
-      placeholder: Show a "voting closed" banner in the lobby for late joiners…
+      label: Proposed behavior
+      description: Describe the smallest observable change that would solve the problem.
     validations:
       required: true
   - type: textarea
-    id: fairness
+    id: boundary
     attributes:
-      label: Fairness / privacy impact
-      description: Does this touch scoring, blind-ballot integrity, or stored data? If yes, how do we keep it fair and private?
+      label: Prototype boundary
+      description: Explain effects on fictional data, in-memory state, accountless access, or deployment scope.
+    validations:
+      required: true
+  - type: textarea
+    id: privacy-ranking
+    attributes:
+      label: Privacy and ranking impact
+      description: Address capability scope, projections, retained data, deterministic outcomes, and no-match behavior as applicable.
+    validations:
+      required: true
   - type: textarea
     id: alternatives
     attributes:
       label: Alternatives considered
+      description: Include the option of leaving current behavior unchanged.
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Submission checks
+      options:
+        - label: I reviewed the documentation index and roadmap for existing decisions and non-goals.
+          required: true
+        - label: This issue contains no private session or participant data.
+          required: true

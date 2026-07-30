@@ -1,52 +1,66 @@
-# Contributing to TableVote
+# Contributing To TableVote
 
-Thanks for helping make group dinners less argumentative.
+TableVote is a portfolio prototype with intentionally narrow product and deployment boundaries. Contributions should make those boundaries clearer rather than imply production guarantees.
 
-## Ground rules
+## Before Starting
 
-- Be kind and constructive — see [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
-- Preserve the warm cream/terracotta/olive visual language, mobile-first shell, and accessible native controls.
-- The fairness engine (`shared/scoring.ts`) is the heart of the product. Any change to
-  scoring semantics must come with updated unit tests and an explanation in the PR of
-  how outcomes change for minorities at the table.
+- Follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+- Use the structured [question/support form](https://github.com/HaithamAlMaamari/tablevote/issues/new?template=question.yml) for scoped usage or contributor questions.
+- Use [SECURITY.md](SECURITY.md), not a public issue, for vulnerabilities or sensitive security details.
+- Never publish live invite codes, capabilities, authorization headers, ballots, dietary requirements, nicknames, exact locations, or unredacted logs.
 
 ## Setup
 
+Requires Node.js `22.22+` within Node 22, or Node.js `24+`.
+
 ```bash
 npm ci
-npm run dev      # client :3000 + API :3001
+npm run dev
 ```
 
-## Before you open a PR
+The client runs at `http://localhost:3000` and proxies the API/socket server at `http://localhost:3001`.
+
+## Architecture Rules
+
+- Keep browser-only and Node-only APIs out of `shared/`.
+- Define network inputs and outputs as shared runtime Zod schemas, not TypeScript-only interfaces.
+- Keep domain failures typed and transport-neutral.
+- Put authorization and state transitions in `OperationService`/`SessionStore`, not independently in REST and socket handlers.
+- Map operations through both thin adapters when both transports support them.
+- Construct viewer-specific projections on the server; never rely on the UI to hide private fields.
+- Treat the in-memory store as a deliberate prototype decision. Persistence is a new architecture, not a small adapter.
+- Preserve deterministic ranking semantics. Explain any weight, precision, filtering, or tie change and update golden scenarios.
+- Do not reintroduce browser-local session simulation; the supported development flow uses the server.
+
+Read the [documentation index](docs/README.md), [architecture guide](docs/ARCHITECTURE.md), and [operation contract](docs/OPERATIONS.md) before changing a cross-cutting behavior.
+
+## Verification
+
+Run the standard repository gate:
 
 ```bash
-npm run lint
-npm run check:docs
-npm run check:repo
-npm run check:catalog
-npm test
-npm run build
-npm run test:browser
-npm run audit:prod
-npm run smoke:prod
+npm run verify
 ```
 
-All checks must be clean. Install the browser binaries once with `npx playwright install chromium firefox webkit`. Add tests for new scoring behavior, API surface, or critical browser flows.
+For transport, lifecycle, deployment, accessibility, or critical UI changes, also run:
 
-## Architecture pointers
+```bash
+npx playwright install chromium firefox webkit
+npm run verify:full
+```
 
-- `shared/` is imported by BOTH server and client — no Node- or DOM-only APIs in there.
-- All network behavior goes through `src/lib/transport.ts` (socket mode + local demo mode).
-  If you add a server op, mirror it in the local transport.
-- Prototype server state is intentionally in memory (24h TTL, no database, no accounts).
-  Treat durable persistence as a separate architectural change, not a small patch.
-- Security: crypto-random tokens, zod-validate every input, rate-limit new endpoints that
-  create resources.
+Add focused tests for changed contracts, operation outcomes, capability boundaries, projections, ranking behavior, and user-visible failure states. Test counts are not a quality target and should not be copied into documentation.
 
-## Commit style
+## Documentation Changes
 
-Short imperative subject lines (`add copeland tiebreak test`). Reference issues where relevant.
+- Update `docs/OPERATIONS.md` when an operation, route, socket event, response, failure, or retry rule changes.
+- Update `docs/security/THREAT_MODEL.md` when data exposure, authorization, retention, or deployment trust changes.
+- Add or supersede an ADR when changing an accepted architectural decision.
+- Keep `CHANGELOG.md` under `Unreleased` until a real release is published.
+- Run `npm run check:docs` and avoid links to planned files that do not exist.
 
-## Reporting security issues
+## Pull Requests
 
-Do not open public issues for vulnerabilities or sensitive session data. Follow [SECURITY.md](SECURITY.md).
+Keep the change as small as the problem permits. In the pull request, explain the observed problem, chosen behavior, privacy/ranking implications, and verification performed. Include visual evidence only when the UI changed, and redact all session data.
+
+Use short imperative commit subjects, for example `document socket fallback contract`. Reference an issue when one exists.

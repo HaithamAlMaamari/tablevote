@@ -25,241 +25,239 @@ function CharStagger({ text, className, delay = 0 }: { text: string; className?:
   );
 }
 
-function HeroArt() {
+function HeroBallot() {
+  const rows = [
+    { code: 'JPN', label: 'Japanese', mark: '+', color: 'bg-electric text-ticket' },
+    { code: 'LBN', label: 'Lebanese', mark: '+', color: 'bg-electric text-ticket' },
+    { code: 'THA', label: 'Thai', mark: '—', color: 'bg-ticket text-ink' },
+  ];
+
   return (
-    <svg
-      viewBox="0 0 400 300" className="mx-auto w-full max-w-[340px]"
-      aria-hidden
+    <motion.div
+      initial={{ opacity: 0, rotate: 2, x: 16 }}
+      animate={{ opacity: 1, rotate: -1, x: 0 }}
+      transition={{ delay: 0.25, duration: 0.55, ease: EASE_POP }}
+      className="ticket-panel mx-auto w-full max-w-[390px] bg-ticket"
     >
-      <ellipse cx="200" cy="180" rx="70" ry="18" fill="#C4552D" />
-      <rect x="192" y="192" width="16" height="46" rx="6" fill="#A8431F" />
-      <ellipse cx="200" cy="240" rx="40" ry="8" fill="#A8431F" />
-      <ellipse cx="200" cy="172" rx="30" ry="9" fill="#FFFDF8" />
-      <path d="M186 160 q4 -12 0 -20 M200 158 q4 -12 0 -20 M214 160 q4 -12 0 -20" stroke="#6B7A3F" strokeWidth="4" fill="none" strokeLinecap="round" />
-      {/* phones around the table */}
-      {[
-        { x: 40, y: 60, r: -14, c: '#6B7A3F' },
-        { x: 316, y: 60, r: 14, c: '#E9B44C' },
-        { x: 30, y: 190, r: 10, c: '#E9B44C' },
-        { x: 326, y: 190, r: -10, c: '#6B7A3F' },
-      ].map((p, i) => (
-        <g key={i} transform={`translate(${p.x} ${p.y}) rotate(${p.r})`}>
-          <rect width="44" height="78" rx="10" fill={p.c} />
-          <rect x="5" y="8" width="34" height="56" rx="6" fill="#FFFDF8" />
-          <rect x="12" y="16" width="20" height="6" rx="3" fill={p.c} opacity="0.7" />
-          <rect x="12" y="28" width="14" height="6" rx="3" fill={p.c} opacity="0.4" />
-          <circle cx="22" cy="70" r="3" fill="#FFFDF8" />
-        </g>
-      ))}
-      {/* confetti dots */}
-      {[
-        [110, 40], [290, 36], [200, 30], [80, 130], [330, 130], [150, 70], [255, 74],
-      ].map(([x, y], i) => (
-        <circle
-          key={i} cx={x} cy={y} r={i % 2 ? 4 : 5.5}
-          fill={['#C4552D', '#E9B44C', '#6B7A3F'][i % 3]}
-        />
-      ))}
-    </svg>
+      <div className="flex items-start justify-between border-b-2 border-rule bg-ink px-5 py-4 text-ticket">
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-ticket/70">TableVote ballot</p>
+          <p className="mt-1 font-display text-[25px] font-bold tracking-[-0.04em]">Friday dinner</p>
+        </div>
+        <span className="border-2 border-acid px-2 py-1 font-mono text-[10px] uppercase tracking-widest text-acid">
+          OPEN
+        </span>
+      </div>
+      <div className="flex justify-between border-b-2 border-dashed border-rule px-5 py-3 font-mono text-[10px] uppercase tracking-widest text-ink-muted">
+        <span>Guest 04</span>
+        <span>Private</span>
+        <span>01 / 05</span>
+      </div>
+      <div className="space-y-2 p-5">
+        <p className="ticket-label mb-3">Mark tonight's direction</p>
+        {rows.map((row) => (
+          <div key={row.code} className="grid grid-cols-[48px_1fr_36px] items-center border-2 border-rule bg-canvas">
+            <span className="border-r-2 border-rule py-3 text-center font-mono text-[10px] font-medium">
+              {row.code}
+            </span>
+            <span className="px-3 text-[15px] font-bold">{row.label}</span>
+            <span
+              className={`flex h-full items-center justify-center border-l-2 border-rule font-mono text-lg ${row.color}`}
+            >
+              {row.mark}
+            </span>
+          </div>
+        ))}
+      </div>
+      <div className="tear-rule mx-5 flex items-center justify-between py-4">
+        <span className="font-mono text-[10px] uppercase tracking-widest text-ink-muted">
+          Group reveal after 2+ votes
+        </span>
+        <span className="ballot-stamp text-signal-dark">Cast blind</span>
+      </div>
+    </motion.div>
   );
 }
 
 const STEPS = [
   {
-    n: 1, title: 'Create & share',
+    n: '01',
+    signal: 'INVITE',
+    title: 'Create & share',
     body: 'Create a table, then send one contextual link, QR, or 5-letter code to the group chat.',
-    art: (
-      <svg viewBox="0 0 120 120" className="mx-auto h-24 w-24" aria-hidden>
-        <rect x="36" y="16" width="48" height="88" rx="12" fill="#C4552D" />
-        <rect x="42" y="26" width="36" height="62" rx="6" fill="#FFFDF8" />
-        <rect x="50" y="34" width="20" height="20" rx="4" fill="none" stroke="#C4552D" strokeWidth="3" />
-        <path d="M50 34 l20 20 M70 34 l-20 20" stroke="#C4552D" strokeWidth="3" />
-        <rect x="50" y="62" width="20" height="6" rx="3" fill="#C4552D" opacity="0.5" />
-        <circle cx="88" cy="30" r="14" fill="#F8EDD6" stroke="#E9B44C" strokeWidth="3" />
-        <path d="M83 30 h10 M88 25 v10" stroke="#8A6A1F" strokeWidth="3" strokeLinecap="round" />
-      </svg>
-    ),
   },
   {
-    n: 2, title: 'Everyone votes privately',
-    body: "Cuisines, budget, distance, and dietary needs. Raw ballots stay private, even from the host.",
-    art: (
-      <svg viewBox="0 0 120 120" className="mx-auto h-24 w-24" aria-hidden>
-        {[
-          { x: 6, c: '#6B7A3F', mark: '♥' },
-          { x: 42, c: '#E9B44C', mark: '–' },
-          { x: 78, c: '#C4552D', mark: '✕' },
-        ].map((p, i) => (
-          <g key={i} transform={`translate(${p.x} 20)`}>
-            <rect width="36" height="80" rx="9" fill={p.c} />
-            <rect x="4" y="7" width="28" height="58" rx="5" fill="#FFFDF8" />
-            <rect x="8" y="14" width="20" height="10" rx="5" fill={p.c} opacity="0.35" />
-            <rect x="8" y="30" width="20" height="10" rx="5" fill={p.c} opacity="0.35" />
-            <text x="18" y="58" textAnchor="middle" fontSize="14" fill={p.c} fontWeight="bold">{p.mark}</text>
-          </g>
-        ))}
-      </svg>
-    ),
+    n: '02',
+    signal: 'BALLOT',
+    title: 'Everyone votes privately',
+    body: 'Cuisines, budget, distance, and dietary needs. Raw ballots stay private, even from the host.',
   },
   {
-    n: 3, title: 'Reveal the winner',
+    n: '03',
+    signal: 'VERDICT',
+    title: 'Reveal the winner',
     body: 'A deterministic fairness engine finds one shared recommendation and shows the ranking rules and private fit.',
-    art: (
-      <svg viewBox="0 0 120 120" className="mx-auto h-24 w-24" aria-hidden>
-        <ellipse cx="60" cy="92" rx="40" ry="8" fill="#6B7A3F" opacity="0.25" />
-        <path d="M24 84 a36 36 0 0 1 72 0 z" fill="#E9B44C" />
-        <circle cx="60" cy="44" r="6" fill="#E9B44C" />
-        <rect x="18" y="84" width="84" height="8" rx="4" fill="#C4552D" />
-        {[[30, 20], [90, 16], [60, 8], [42, 12], [80, 26]].map(([x, y], i) => (
-          <circle key={i} cx={x} cy={y} r="4" fill={['#C4552D', '#6B7A3F', '#E9B44C'][i % 3]} />
-        ))}
-      </svg>
-    ),
   },
 ];
 
 export default function Landing() {
   const nav = useNavigate();
   return (
-    <div className="relative z-10 min-h-dvh bg-cream">
-      {/* Top bar */}
-      <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-clay-line bg-paper px-5 md:px-8">
+    <div className="relative z-10 min-h-dvh overflow-x-clip bg-canvas">
+      <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b-[3px] border-rule bg-ticket px-5 md:px-8">
         <Logo />
         <div className="flex items-center gap-4">
-          <a href="https://github.com/HaithamAlMaamari/tablevote" className="hidden items-center gap-1.5 text-[13px] font-semibold text-ink-soft sm:flex">
-            <Github size={16} strokeWidth={1.75} /> GitHub
+          <a
+            href="https://github.com/HaithamAlMaamari/tablevote"
+            className="hidden items-center gap-1.5 font-mono text-[11px] font-medium uppercase tracking-wider text-ink-muted sm:flex"
+          >
+            <Github size={16} strokeWidth={2} /> Source
           </a>
-          <Btn variant="secondary" className="min-h-11 px-3 py-2 text-[13px]" onClick={() => nav('/join')}>
+          <Btn variant="secondary" className="min-h-10 px-3 py-1 text-[13px]" onClick={() => nav('/join')}>
             Join with code
           </Btn>
         </div>
       </header>
 
-      <main className="mx-auto max-w-[960px]">
-        <aside className="mx-5 mt-5 rounded-xl border border-butter/60 bg-butter-tint px-4 py-3 text-center text-[13px] font-semibold leading-relaxed text-ink-soft md:mx-6">
-          Portfolio demo using fictional sample venues. It is not live restaurant search, opening-hours, map, or dietary verification.
-        </aside>
-        {/* Hero */}
-        <section className="grid items-center gap-8 px-5 pb-10 pt-12 md:grid-cols-[55%_45%] md:px-6">
-          <div className="order-2 md:order-1">
-            <h1 className="text-center font-display text-[40px] font-semibold leading-[1.05] tracking-[-0.02em] text-ink [outline-style:none] md:text-left md:text-[52px]">
-              <CharStagger text="Stop debating" delay={0.1} />
-              <br />
-              <CharStagger text="where to eat." delay={0.35} />
-            </h1>
-            <motion.p
-              initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4, duration: 0.4, ease: EASE_STANDARD }}
-              className="mx-auto mt-4 max-w-[420px] text-center text-[17px] leading-[1.55] text-ink-soft md:mx-0 md:text-left"
-            >
-              Create a table, share one link, and let everyone vote privately. TableVote ranks a fictional demo catalog for the group.
-            </motion.p>
-            <motion.div
-              initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.6, duration: 0.4, ease: EASE_STANDARD }}
-              className="mt-6 flex flex-col items-center gap-3 md:items-start"
-            >
-              <Btn className="h-14 w-full px-6 text-[15px] md:w-auto" onClick={() => nav('/create')}>
-                <Utensils size={20} strokeWidth={1.75} /> Create a table
-              </Btn>
-              <button
-                type="button"
-                onClick={() => {
-                  const heading = document.getElementById('how-heading');
-                  heading?.scrollIntoView({ behavior: 'smooth' });
-                  heading?.focus({ preventScroll: true });
-                }}
-                className="text-[14px] font-bold text-ink-soft underline-offset-2 hover:underline"
-              >
-                How does it work? ↓
-              </button>
-            </motion.div>
-            <motion.div
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}
-              className="mt-5 flex items-center justify-center gap-3 text-[13px] font-semibold tracking-[0.01em] text-ink-faint md:justify-start"
-            >
-              {['MIT licensed', 'Open source', 'No sign-up'].map((t) => (
-                <span key={t} className="flex items-center gap-1"><Check size={13} className="text-olive" /> {t}</span>
-              ))}
-            </motion.div>
-          </div>
-          <div className="order-1 md:order-2"><HeroArt /></div>
-        </section>
+      <main>
+        <div data-capture="landing" className="mx-auto max-w-[1120px] px-5 pb-16 pt-6 md:px-8">
+          <aside className="flex items-center justify-between gap-4 border-2 border-rule bg-acid px-4 py-2.5 font-mono text-[10px] font-medium uppercase tracking-[0.08em] text-ink sm:text-[11px]">
+            <span>Prototype ticket / fictional venues only</span>
+            <span className="hidden text-right sm:block">No live search · no dietary verification</span>
+          </aside>
 
-        {/* How it works */}
-        <section id="how" className="rounded-t-[32px] bg-cream-deep px-5 py-14 md:px-6">
-          <h2 id="how-heading" tabIndex={-1} className="text-center font-display text-[30px] font-semibold leading-[1.15] tracking-[-0.015em] text-ink">
-            How TableVote works
-          </h2>
-          <div className="mt-8 grid gap-4 md:grid-cols-3">
-            {STEPS.map((s, i) => (
-              <motion.div
-                key={s.n}
-                initial={{ opacity: 0, y: 40 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, amount: 0.2 }}
-                transition={{ duration: 0.5, ease: EASE_STANDARD, delay: i * 0.12 }}
-                whileHover={{ y: -4 }}
-                className="rounded-[20px] border border-clay-line bg-paper p-5 shadow-card"
-              >
-                {s.art}
-                <div className="mt-3 flex items-center gap-2">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-butter font-display text-[14px] font-semibold text-ink">{s.n}</span>
-                  <h3 className="font-display text-[24px] font-semibold leading-[1.2] tracking-[-0.01em] text-ink">{s.title}</h3>
-                </div>
-                <p className="mt-2 text-[15px] leading-[1.5] text-ink-soft">{s.body}</p>
-              </motion.div>
-            ))}
-          </div>
-        </section>
-
-        {/* Fairness strip */}
-        <section className="bg-cream-deep px-5 pb-14 md:px-6">
-          <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, amount: 0.2 }}
-            transition={{ duration: 0.4, ease: EASE_STANDARD }}
-            className="flex flex-col gap-4 rounded-[24px] border border-clay-line bg-paper p-7 shadow-card sm:flex-row sm:items-start"
-          >
-            <motion.span
-              initial={{ rotate: -4 }} whileInView={{ rotate: [ -4, 4, 0 ] }}
-              viewport={{ once: true }} transition={{ duration: 0.9 }}
-              className="text-olive"
-            >
-              <Scale size={32} strokeWidth={1.75} />
-            </motion.span>
+          <section className="grid items-center gap-10 pb-10 pt-12 md:grid-cols-[1.08fr_0.92fr] md:gap-14 md:py-16">
             <div>
-              <h3 className="font-display text-[24px] font-semibold tracking-[-0.01em] text-ink">Calm confidence, by design</h3>
-              <p className="mt-2 text-[15px] leading-[1.5] text-ink-soft">
-                 Required dietary conditions are checked before deterministic ranking. Raw ballots stay private, and the group gets an explanation it can understand without exposing individual choices.
+              <p className="ticket-label mb-5 flex items-center gap-3">
+                <span className="h-2 w-2 bg-signal" /> One table. One ballot. One call.
               </p>
-              <a href="https://github.com/HaithamAlMaamari/tablevote/blob/main/shared/scoring.ts" className="mt-3 inline-flex items-center gap-1 text-[14px] font-bold text-terracotta-deep">
-                Read the algorithm <ArrowRight size={16} />
-              </a>
+              <h1 className="max-w-[620px] font-display text-[48px] font-extrabold leading-[0.92] tracking-[-0.055em] text-ink [outline-style:none] sm:text-[64px] lg:text-[78px]">
+                <CharStagger text="Stop debating" delay={0.05} />
+                <br />
+                <span className="text-signal underline decoration-electric decoration-[6px] underline-offset-[9px]">
+                  <CharStagger text="where to eat." delay={0.25} />
+                </span>
+              </h1>
+              <motion.p
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.38, duration: 0.4, ease: EASE_STANDARD }}
+                className="mt-7 max-w-[520px] text-[18px] font-medium leading-[1.5] text-ink-muted"
+              >
+                Create a shared dining ticket, collect private tastes, and let a transparent ranking call the table.
+              </motion.p>
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5, duration: 0.4, ease: EASE_STANDARD }}
+                className="mt-7 flex flex-col items-start gap-4 sm:flex-row sm:items-center"
+              >
+                <Btn className="h-14 w-full px-7 text-[16px] sm:w-auto" onClick={() => nav('/create')}>
+                  <Utensils size={19} strokeWidth={2} /> Create a table
+                </Btn>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const heading = document.getElementById('how-heading');
+                    heading?.scrollIntoView({ behavior: 'smooth' });
+                    heading?.focus({ preventScroll: true });
+                  }}
+                  className="min-h-11 font-mono text-[11px] font-medium uppercase tracking-wider text-ink-muted underline decoration-2 underline-offset-4 hover:text-electric"
+                >
+                  How does it work? ↓
+                </button>
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.65 }}
+                className="mt-7 flex flex-wrap gap-x-5 gap-y-2 font-mono text-[10px] font-medium uppercase tracking-wider text-ink-muted"
+              >
+                {['MIT licensed', 'Open source', 'No sign-up'].map((text) => (
+                  <span key={text} className="flex items-center gap-1.5">
+                    <Check size={13} strokeWidth={3} className="text-electric" /> {text}
+                  </span>
+                ))}
+              </motion.div>
             </div>
-          </motion.div>
+            <HeroBallot />
+          </section>
+        </div>
+
+        <section id="how" className="border-y-[3px] border-rule bg-ink px-5 py-16 text-ticket md:px-8">
+          <div className="mx-auto max-w-[1080px]">
+            <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+              <div>
+                <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-acid">Service sequence</p>
+                <h2
+                  id="how-heading"
+                  tabIndex={-1}
+                  className="mt-2 font-display text-[36px] font-bold tracking-[-0.04em] text-ticket"
+                >
+                  How TableVote works
+                </h2>
+              </div>
+              <p className="max-w-[360px] text-[15px] leading-relaxed text-ticket/70">
+                The table sees readiness and the final ranking. Individual ballots remain sealed.
+              </p>
+            </div>
+            <div className="mt-9 grid border-2 border-ticket md:grid-cols-3">
+              {STEPS.map((step, i) => (
+                <motion.article
+                  key={step.n}
+                  initial={{ opacity: 0, y: 24 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, amount: 0.2 }}
+                  transition={{ duration: 0.4, delay: i * 0.1 }}
+                  className="relative min-h-[260px] border-b-2 border-ticket p-6 last:border-b-0 md:border-b-0 md:border-r-2 md:last:border-r-0"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-display text-[52px] font-extrabold leading-none text-ticket/50">
+                      {step.n}
+                    </span>
+                    <span className="ballot-stamp text-acid">{step.signal}</span>
+                  </div>
+                  <h3 className="mt-8 font-display text-[25px] font-bold tracking-[-0.03em]">{step.title}</h3>
+                  <p className="mt-3 text-[15px] leading-relaxed text-ticket/70">{step.body}</p>
+                </motion.article>
+              ))}
+            </div>
+          </div>
         </section>
 
-        {/* Footer CTA */}
-        <section className="px-5 py-14 text-center">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            viewport={{ once: true, amount: 0.3 }}
-            transition={{ duration: 0.45, ease: EASE_POP }}
-          >
-            <h2 className="font-display text-[30px] font-semibold tracking-[-0.015em] text-ink">Hungry? Settle it.</h2>
-            <Btn className="mx-auto mt-5 h-14 px-8 text-[15px]" onClick={() => nav('/create')}>
-              <Utensils size={20} strokeWidth={1.75} /> Create a table
-            </Btn>
-          </motion.div>
+        <section className="mx-auto grid max-w-[1080px] gap-8 px-5 py-16 md:grid-cols-[0.8fr_1.2fr] md:px-8">
+          <div className="border-l-[8px] border-electric pl-5">
+            <Scale size={30} strokeWidth={2} className="text-electric" />
+            <h2 className="mt-4 font-display text-[32px] font-bold tracking-[-0.04em]">The receipt shows its work.</h2>
+          </div>
+          <div className="ticket-panel p-7">
+            <p className="ticket-label">Fairness note / deterministic, not objective</p>
+            <p className="mt-4 text-[17px] leading-relaxed text-ink-muted">
+              Required dietary conditions are checked before deterministic ranking. Raw ballots stay private, and the
+              group gets an explanation it can understand without exposing individual choices.
+            </p>
+            <a
+              href="https://github.com/HaithamAlMaamari/tablevote/blob/main/shared/scoring.ts"
+              className="mt-5 inline-flex items-center gap-2 font-mono text-[11px] font-medium uppercase tracking-wider text-electric underline decoration-2 underline-offset-4"
+            >
+              Read the algorithm <ArrowRight size={15} />
+            </a>
+          </div>
+        </section>
+
+        <section className="border-t-[3px] border-rule bg-signal px-5 py-14 text-center text-ticket">
+          <h2 className="font-display text-[36px] font-bold tracking-[-0.04em]">Hungry? Issue the ballot.</h2>
+          <Btn variant="secondary" className="mx-auto mt-6 h-14 px-8" onClick={() => nav('/create')}>
+            Create a table
+          </Btn>
         </section>
       </main>
 
-      <footer className="border-t border-clay-line px-5 py-6 text-center text-[13px] font-semibold tracking-[0.01em] text-ink-faint">
-        TableVote is open source · MIT · Made for indecisive friend groups ·{' '}
-        <a className="underline" href="https://github.com/HaithamAlMaamari/tablevote">GitHub</a>
+      <footer className="border-t-[3px] border-rule bg-ticket px-5 py-6 text-center font-mono text-[10px] font-medium uppercase tracking-wider text-ink-faint">
+        TableVote · MIT · Made for indecisive friend groups ·{' '}
+        <a className="underline" href="https://github.com/HaithamAlMaamari/tablevote">
+          GitHub
+        </a>
       </footer>
     </div>
   );

@@ -1,12 +1,18 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const projectPorts = {
+  chromium: 3001,
+  firefox: 3002,
+  webkit: 3003,
+} as const;
+
 export default defineConfig({
   testDir: './tests/browser',
   fullyParallel: false,
   timeout: 30_000,
   expect: { timeout: 8_000 },
   retries: process.env.CI ? 1 : 0,
-  // Projects share one in-memory server with deliberately bounded global quotas.
+  // Each project gets isolated in-memory quotas and session state.
   workers: 1,
   reporter: process.env.CI ? [['line'], ['html', { open: 'never' }]] : 'line',
   use: {
@@ -15,14 +21,23 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-    { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
-    { name: 'webkit', use: { ...devices['Desktop Safari'] } },
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'], baseURL: `http://127.0.0.1:${projectPorts.chromium}` },
+    },
+    {
+      name: 'firefox',
+      use: { ...devices['Desktop Firefox'], baseURL: `http://127.0.0.1:${projectPorts.firefox}` },
+    },
+    {
+      name: 'webkit',
+      use: { ...devices['Desktop Safari'], baseURL: `http://127.0.0.1:${projectPorts.webkit}` },
+    },
   ],
-  webServer: {
-    command: 'npm start',
-    url: 'http://127.0.0.1:3001',
+  webServer: Object.values(projectPorts).map((port) => ({
+    command: `node -e "process.env.PORT='${port}'; import('./dist-server/index.js').then((module) => module.startServer())"`,
+    url: `http://127.0.0.1:${port}`,
     reuseExistingServer: false,
     timeout: 30_000,
-  },
+  })),
 });

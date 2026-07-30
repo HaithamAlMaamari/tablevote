@@ -1,15 +1,22 @@
 # Demo Data
 
-TableVote ships with 40 generated restaurant fixtures so the complete group flow can run without API keys.
+TableVote includes a deterministically generated restaurant catalog so the complete flow can run without provider credentials.
 
-The records in `shared/restaurants.json` are fictional. Names, districts, ratings, distances, prices, availability, coordinates, and dietary tags do not describe real venues. The coordinates are deliberately set to `0,0`, and the interface does not offer map directions for fixture records.
+Every record in `shared/restaurants.json` is fictional. Names, districts, ratings, distances, prices, availability, coordinates, and dietary evidence do not describe real venues. Coordinates are deliberately `0,0`, and the interface does not offer directions for fixture records.
 
-Generate the catalog deterministically with:
+## Reproducibility
 
 ```bash
 npm run generate:catalog
+npm run check:catalog
 ```
 
-Positive dietary tags become simulated `supported` evidence only inside the demo ranking fixture. They are useful for testing fail-closed filtering but are not restaurant, allergy, religious-compliance, or cross-contamination claims.
+Generation is deterministic. `check:catalog` verifies that the committed catalog matches the generator rather than silently rewriting it.
 
-The MIT license covers this generated fixture catalog as part of the repository.
+## Dietary Evidence
+
+Positive fixture tags are normalized into simulated `supported` evidence. Other explicit states exercise fail-closed filtering. These fields exist to test ranking behavior; they are not allergy, ingredient, cross-contamination, restaurant, or religious-compliance claims.
+
+Do not replace fictional fields with scraped or unlicensed venue data. A real provider integration would require licensing, provenance, freshness policy, correction handling, and a separate safety review.
+
+The generated fixture catalog is included under the repository's [MIT License](LICENSE).

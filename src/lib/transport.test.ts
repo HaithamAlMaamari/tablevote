@@ -1,16 +1,58 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Session } from '@shared/types';
-import { clearSessionStorage, loadIdentity, saveIdentity, sweepExpiredSessionStorage, type Identity } from './transport';
+import { MutationSuccessSchema } from '@shared/contracts';
+import { clearSessionStorage, loadIdentity, saveIdentity, sweepExpiredSessionStorage, type Identity } from './identity';
+import { decodeOperationResult } from './transport';
 
 class MemoryStorage implements Storage {
   private values = new Map<string, string>();
-  get length() { return this.values.size; }
-  clear() { this.values.clear(); }
-  getItem(key: string) { return this.values.get(key) ?? null; }
-  key(index: number) { return [...this.values.keys()][index] ?? null; }
-  removeItem(key: string) { this.values.delete(key); }
-  setItem(key: string, value: string) { this.values.set(key, value); }
+  get length() {
+    return this.values.size;
+  }
+  clear() {
+    this.values.clear();
+  }
+  getItem(key: string) {
+    return this.values.get(key) ?? null;
+  }
+  key(index: number) {
+    return [...this.values.keys()][index] ?? null;
+  }
+  removeItem(key: string) {
+    this.values.delete(key);
+  }
+  setItem(key: string, value: string) {
+    this.values.set(key, value);
+  }
 }
+
+describe('client transport decoding', () => {
+  it('wraps a valid network response as a success value', () => {
+    expect(decodeOperationResult({ ok: true }, MutationSuccessSchema)).toEqual({
+      ok: true,
+      value: { ok: true },
+    });
+  });
+
+  it.each([
+    ['Request timed out', 'timeout'],
+    ['Server unavailable', 'unavailable'],
+    ['Voting is closed', 'locked'],
+  ] as const)('preserves the typed failure %s', (error, errorCode) => {
+    expect(decodeOperationResult({ error, errorCode }, MutationSuccessSchema)).toEqual({
+      ok: false,
+      error,
+      errorCode,
+    });
+  });
+
+  it('turns malformed network data into a typed unknown failure', () => {
+    expect(decodeOperationResult({ ok: false }, MutationSuccessSchema)).toEqual({
+      ok: false,
+      error: 'Invalid server response',
+      errorCode: 'unknown',
+    });
+  });
+});
 
 describe('client session retention', () => {
   beforeEach(() => vi.stubGlobal('localStorage', new MemoryStorage()));
@@ -21,28 +63,24 @@ describe('client session retention', () => {
 
   it('removes expired identities and linked session storage', () => {
     const identity: Identity = {
-      participantId: 'p1', token: 'token', nickname: 'Host', color: 0,
-      isHost: true, expiresAt: 100, hostToken: 'host',
+      participantId: 'p1',
+      token: 'token',
+      nickname: 'Host',
+      color: 0,
+      isHost: true,
+      expiresAt: 100,
+      hostToken: 'host',
     };
     saveIdentity('ABCDE', identity);
     localStorage.setItem('tablevote:prefs:ABCDE', '{}');
     localStorage.setItem('tablevote:idref:ABCDE', 'session-id');
     localStorage.setItem('tablevote:me:session-id', JSON.stringify(identity));
-    const session: Session = {
-      id: 'session-id', code: 'ABCDE', hostToken: 'host', participants: [], phase: 'collecting',
-      result: null, excludedIds: [], rerunsUsed: 0, allowReruns: true, createdAt: 0,
-      center: { lat: 23.5, lng: 58.3 }, areaLabel: 'Qurum', radiusKm: 3,
-    };
-    localStorage.setItem('tablevote:session:session-id', JSON.stringify(session));
     vi.spyOn(Date, 'now').mockReturnValue(100);
 
     expect(loadIdentity('ABCDE')).toBeNull();
     expect(localStorage.getItem('tablevote:me:ABCDE')).toBeNull();
     expect(localStorage.getItem('tablevote:me:session-id')).toBeNull();
     expect(localStorage.getItem('tablevote:prefs:ABCDE')).toBeNull();
-    const terminals = JSON.parse(localStorage.getItem('tablevote:terminals') ?? '{}');
-    expect(terminals.ABCDE.reason).toBe('expired');
-    expect(terminals['session-id'].reason).toBe('expired');
   });
 
   it('clears explicit code and ID references together', () => {
@@ -50,14 +88,17 @@ describe('client session retention', () => {
     localStorage.setItem('tablevote:me:ABCDE', '{}');
     localStorage.setItem('tablevote:me:session-id', '{}');
     clearSessionStorage('session-id');
-    expect(localStorage.length).toBe(1);
-    expect(localStorage.getItem('tablevote:codes')).toBe('{}');
+    expect(localStorage.length).toBe(0);
   });
 
   it('sweeps expired and malformed records on application startup', () => {
     const valid: Identity = {
-      participantId: 'valid', token: 'valid-token', nickname: 'Valid', color: 0,
-      isHost: false, expiresAt: 200,
+      participantId: 'valid',
+      token: 'valid-token',
+      nickname: 'Valid',
+      color: 0,
+      isHost: false,
+      expiresAt: 200,
     };
     const expired = { ...valid, participantId: 'expired', expiresAt: 100 };
     localStorage.setItem('tablevote:me:VALID', JSON.stringify(valid));
