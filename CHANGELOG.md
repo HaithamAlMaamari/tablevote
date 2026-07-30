@@ -17,6 +17,7 @@ Notable repository changes are recorded here using [Keep a Changelog](https://ke
 ### Fixed
 
 - Failed ranking calculations rebroadcast the restored pre-lock state instead of leaving clients visually locked.
+- Each browser engine now runs against fresh bounded server state, and rerun focus survives delayed WebKit dialog restoration.
 - The loopback production harness now supplies every required startup variable, including `HOST`.
 - Stale local-mode, scaffold, logo, audit-threshold, and documentation references were removed or corrected.
 

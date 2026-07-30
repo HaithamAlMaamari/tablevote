@@ -8,7 +8,7 @@ import { btnVariants, type BtnVariant } from '@/components/ui/button-styles';
 import { cn } from '@/lib/utils';
 import { EASE_POP, EASE_STANDARD } from '@/lib/motion';
 import { cuisineCode } from '@/lib/cuisine-marks';
-import tableVoteMark from '@/assets/tablevote-mark.svg';
+import tableVoteMark from '@/assets/tablevote-mark.svg?no-inline';
 
 export function Logo({ className }: { className?: string }) {
   return (

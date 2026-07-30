@@ -18,7 +18,7 @@
     "test:coverage": "vitest run --coverage",
     "test:tooling": "node --test scripts/audit-report.test.mjs",
     "test:browser": "npm run build && npm run test:browser:built",
-    "test:browser:built": "playwright test",
+    "test:browser:built": "node scripts/run-browser-matrix.mjs",
     "generate:catalog": "node scripts/generate-demo-catalog.mjs",
     "check:catalog": "node scripts/generate-demo-catalog.mjs --check",
     "capture:screenshots": "node scripts/capture-screenshots.mjs",

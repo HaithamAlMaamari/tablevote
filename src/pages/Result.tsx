@@ -53,13 +53,20 @@ export default function Result() {
   useEffect(() => {
     if (!resultKey) return;
     let focusFrame = 0;
+    let focusTimer = 0;
+    const focusWinner = () => winnerHeadingRef.current?.focus({ preventScroll: true });
     const dialogFrame = requestAnimationFrame(() => {
       // Run after alert-dialog focus restoration when a re-run replaces the result.
-      focusFrame = requestAnimationFrame(() => winnerHeadingRef.current?.focus());
+      focusFrame = requestAnimationFrame(() => {
+        focusWinner();
+        // WebKit can restore the dialog trigger after two animation frames.
+        focusTimer = window.setTimeout(focusWinner, 200);
+      });
     });
     return () => {
       cancelAnimationFrame(dialogFrame);
       cancelAnimationFrame(focusFrame);
+      window.clearTimeout(focusTimer);
     };
   }, [resultKey]);
 
