@@ -1,10 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const projectPorts = {
-  chromium: 3001,
-  firefox: 3002,
-  webkit: 3003,
-} as const;
+const port = Number(process.env.TABLEVOTE_E2E_PORT ?? 3001);
 
 export default defineConfig({
   testDir: './tests/browser',
@@ -12,32 +8,23 @@ export default defineConfig({
   timeout: 30_000,
   expect: { timeout: 8_000 },
   retries: process.env.CI ? 1 : 0,
-  // Each project gets isolated in-memory quotas and session state.
+  // The matrix runner gives every browser a fresh server and bounded in-memory state.
   workers: 1,
   reporter: process.env.CI ? [['line'], ['html', { open: 'never' }]] : 'line',
   use: {
-    baseURL: 'http://127.0.0.1:3001',
+    baseURL: `http://127.0.0.1:${port}`,
     reducedMotion: 'reduce',
     trace: 'on-first-retry',
   },
   projects: [
-    {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'], baseURL: `http://127.0.0.1:${projectPorts.chromium}` },
-    },
-    {
-      name: 'firefox',
-      use: { ...devices['Desktop Firefox'], baseURL: `http://127.0.0.1:${projectPorts.firefox}` },
-    },
-    {
-      name: 'webkit',
-      use: { ...devices['Desktop Safari'], baseURL: `http://127.0.0.1:${projectPorts.webkit}` },
-    },
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
+    { name: 'webkit', use: { ...devices['Desktop Safari'] } },
   ],
-  webServer: Object.values(projectPorts).map((port) => ({
+  webServer: {
     command: `node -e "process.env.PORT='${port}'; import('./dist-server/index.js').then((module) => module.startServer())"`,
     url: `http://127.0.0.1:${port}`,
     reuseExistingServer: false,
     timeout: 30_000,
-  })),
+  },
 });
