@@ -64,3 +64,7 @@ Add focused tests for changed contracts, operation outcomes, capability boundari
 Keep the change as small as the problem permits. In the pull request, explain the observed problem, chosen behavior, privacy/ranking implications, and verification performed. Include visual evidence only when the UI changed, and redact all session data.
 
 Use short imperative commit subjects, for example `document socket fallback contract`. Reference an issue when one exists.
+
+## Releases
+
+Protected `main` must be green before release. A maintainer updates `package.json` and `CHANGELOG.md`, merges the change through a pull request, then pushes the matching `v<version>` tag at the protected `main` commit. The release workflow verifies both references, reruns the source gate, and publishes the source archive, CycloneDX SBOM, and checksums.
