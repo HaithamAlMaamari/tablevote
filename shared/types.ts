@@ -1,5 +1,3 @@
-// TableVote — shared types used by BOTH the server and the client.
-
 export const CUISINES = [
   'Italian',
   'Indian',

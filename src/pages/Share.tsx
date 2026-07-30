@@ -20,7 +20,7 @@ import { AvatarDot, Btn, CodeTiles, CtaBar, FadeUp, LiveBadge, ScreenShell, TopB
 import { EASE_POP } from '@/lib/motion';
 import { useSession } from '@/lib/use-session';
 import { SessionStateScreen } from '@/components/session-state';
-import { inviteMessage } from '@/lib/invite';
+import { inviteContext, inviteMessage } from '@/lib/invite';
 import { useSessionPhaseNavigation } from '@/lib/session-routing';
 
 export default function Share() {
@@ -38,7 +38,7 @@ export default function Share() {
   const sessionCode = state?.code;
   const shareCopy = invite
     ? inviteMessage(invite)
-    : `Help choose where the group should eat${state?.areaLabel ? ` for ${state.areaLabel}` : ''}.\nAdd your private preferences so TableVote can find one shared recommendation. No account needed.`;
+    : `Help choose where the group should eat${state?.areaLabel ? ` for ${state.areaLabel}` : ''}.\n${inviteContext}`;
 
   useEffect(() => {
     if (!transport || !sessionCode) return;
@@ -57,7 +57,6 @@ export default function Share() {
       .catch(() => {});
   }, [joinUrl]);
 
-  // toast + animate on new joiners
   useEffect(() => {
     const n = state?.participants.length ?? 0;
     if (prevCount.current && n > prevCount.current) {
@@ -145,7 +144,7 @@ export default function Share() {
 
         <FadeUp delay={0.2} className="mt-6">
           <div className="ticket-panel flex flex-col items-center gap-5 p-6">
-            <span className="ballot-stamp self-start text-signal">Admit table</span>
+            <span className="ballot-stamp self-start text-signal">Invitation</span>
             <p className="text-center text-[14px] font-semibold leading-relaxed text-ink-muted">{shareCopy}</p>
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}

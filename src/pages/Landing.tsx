@@ -17,7 +17,7 @@ function CharStagger({ text, className, delay = 0 }: { text: string; className?:
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: delay + i * 0.012, duration: 0.5, ease: EASE_STANDARD }}
           >
-            {ch === ' ' ? ' ' : ch}
+            {ch === ' ' ? '\u00A0' : ch}
           </motion.span>
         ))}
       </span>
@@ -96,7 +96,7 @@ const STEPS = [
     n: '03',
     signal: 'VERDICT',
     title: 'Reveal the winner',
-    body: 'A deterministic fairness engine finds one shared recommendation and shows the ranking rules and private fit.',
+    body: 'A documented deterministic ranking produces one shared recommendation and shows each person their private fit.',
   },
 ];
 
@@ -144,7 +144,7 @@ export default function Landing() {
                 transition={{ delay: 0.38, duration: 0.4, ease: EASE_STANDARD }}
                 className="mt-7 max-w-[520px] text-[18px] font-medium leading-[1.5] text-ink-muted"
               >
-                Create a shared dining ticket, collect private tastes, and let a transparent ranking call the table.
+                Create a dining session, collect private preferences, and produce one transparent group ranking.
               </motion.p>
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
@@ -231,10 +231,10 @@ export default function Landing() {
             <h2 className="mt-4 font-display text-[32px] font-bold tracking-[-0.04em]">The receipt shows its work.</h2>
           </div>
           <div className="ticket-panel p-7">
-            <p className="ticket-label">Fairness note / deterministic, not objective</p>
+            <p className="ticket-label">Ranking note / deterministic, not objective</p>
             <p className="mt-4 text-[17px] leading-relaxed text-ink-muted">
-              Required dietary conditions are checked before deterministic ranking. Raw ballots stay private, and the
-              group gets an explanation it can understand without exposing individual choices.
+              Required simulated dietary tags filter the fixture catalog before ranking. Raw ballots stay private, and
+              the group sees an explanation without exposing individual choices.
             </p>
             <a
               href="https://github.com/HaithamAlMaamari/tablevote/blob/main/shared/scoring.ts"
@@ -246,7 +246,7 @@ export default function Landing() {
         </section>
 
         <section className="border-t-[3px] border-rule bg-signal px-5 py-14 text-center text-ticket">
-          <h2 className="font-display text-[36px] font-bold tracking-[-0.04em]">Hungry? Issue the ballot.</h2>
+          <h2 className="font-display text-[36px] font-bold tracking-[-0.04em]">Ready to choose?</h2>
           <Btn variant="secondary" className="mx-auto mt-6 h-14 px-8" onClick={() => nav('/create')}>
             Create a table
           </Btn>

@@ -1,33 +1,32 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Prefs } from '../shared/types';
 import { SESSION_TTL_MS } from '../shared/policy';
-import {
-  createSession,
-  createStoreState,
-  endSession,
-  getByIdOrCode,
-  getStoreResourceCounts,
-  getTerminalReason,
-  joinSession,
-  leaveSession,
-  removeParticipant,
-  rerun,
-  reveal,
-  SessionStore,
-  STORE_LIMITS,
-  submitPrefs,
-  type StoreScheduler,
-} from './store';
+import { createStoreState, SessionStore, STORE_LIMITS, type CreateOpts, type StoreScheduler } from './store';
 
-const create = () =>
-  createSession({
+let store: SessionStore;
+
+beforeEach(() => {
+  store = new SessionStore({ scheduler: null });
+});
+
+afterEach(() => {
+  store.close();
+  vi.restoreAllMocks();
+});
+
+const create = (overrides: Partial<CreateOpts> = {}) => {
+  const result = store.create({
     areaLabel: 'Qurum',
     center: { lat: 23.5, lng: 58.3 },
     radiusKm: 3,
     nickname: 'Host',
     color: 0,
     allowReruns: true,
+    ...overrides,
   });
+  if (!result.ok) throw new Error(result.failure.message);
+  return result.value;
+};
 const prefs: Prefs = {
   cuisines: { Japanese: 'like' },
   budget: 2,
@@ -75,25 +74,23 @@ class FakeScheduler implements StoreScheduler {
 }
 
 describe('session expiry', () => {
-  afterEach(() => vi.restoreAllMocks());
-
   it('expires exactly at the 24-hour boundary', () => {
     const startedAt = 1_700_000_000_000;
     vi.spyOn(Date, 'now').mockReturnValue(startedAt);
     const { session } = create();
-    expect(getByIdOrCode(session.code)?.id).toBe(session.id);
+    expect(store.get(session.code)?.id).toBe(session.id);
     vi.spyOn(Date, 'now').mockReturnValue(startedAt + SESSION_TTL_MS);
-    expect(getByIdOrCode(session.code)).toBeUndefined();
-    expect(getByIdOrCode(session.id)).toBeUndefined();
-    expect(getTerminalReason(session.code)).toBe('expired');
-    expect(getTerminalReason(session.id)).toBe('expired');
+    expect(store.get(session.code)).toBeUndefined();
+    expect(store.get(session.id)).toBeUndefined();
+    expect(store.terminalReason(session.code)).toBe('expired');
+    expect(store.terminalReason(session.id)).toBe('expired');
   });
 
   it('retains only an ended reason after explicit deletion', () => {
     const { session } = create();
-    expect(endSession(session.id, session.hostToken)).toBe(true);
-    expect(getByIdOrCode(session.id)).toBeUndefined();
-    expect(getTerminalReason(session.code)).toBe('ended');
+    expect(store.end(session.id, session.hostToken).ok).toBe(true);
+    expect(store.get(session.id)).toBeUndefined();
+    expect(store.terminalReason(session.code)).toBe('ended');
   });
 
   it('bounds terminal reasons without splitting a retained session ID and code', () => {
@@ -103,14 +100,14 @@ describe('session expiry', () => {
       const { session } = create();
       if (index === 0) first = session;
       last = session;
-      expect(endSession(session.id, session.hostToken)).toBe(true);
+      expect(store.end(session.id, session.hostToken).ok).toBe(true);
     }
 
-    expect(getStoreResourceCounts().terminalSessions).toBe(STORE_LIMITS.terminalSessions);
-    expect(getTerminalReason(first!.id)).toBeUndefined();
-    expect(getTerminalReason(first!.code)).toBeUndefined();
-    expect(getTerminalReason(last!.id)).toBe('ended');
-    expect(getTerminalReason(last!.code)).toBe('ended');
+    expect(store.resourceCounts().terminalSessions).toBe(STORE_LIMITS.terminalSessions);
+    expect(store.terminalReason(first!.id)).toBeUndefined();
+    expect(store.terminalReason(first!.code)).toBeUndefined();
+    expect(store.terminalReason(last!.id)).toBe('ended');
+    expect(store.terminalReason(last!.code)).toBe('ended');
   });
 
   it('passively expires at the exact deadline and notifies exactly once', () => {
@@ -121,8 +118,8 @@ describe('session expiry', () => {
         now = value;
       },
     );
-    const store = new SessionStore({ clock: () => now, scheduler });
-    const created = store.create({
+    const scheduledStore = new SessionStore({ clock: () => now, scheduler });
+    const created = scheduledStore.create({
       areaLabel: 'Qurum',
       center: { lat: 23.5, lng: 58.3 },
       radiusKm: 3,
@@ -132,28 +129,28 @@ describe('session expiry', () => {
     });
     if (!created.ok) throw new Error('Expected session creation');
     const expired: string[] = [];
-    store.onExpired((session) => expired.push(session.id));
+    scheduledStore.onExpired((session) => expired.push(session.id));
 
     scheduler.advance(SESSION_TTL_MS - 1);
-    expect(store.state.sessions.has(created.value.session.id)).toBe(true);
+    expect(scheduledStore.state.sessions.has(created.value.session.id)).toBe(true);
     expect(expired).toEqual([]);
     scheduler.advance(1);
-    expect(store.state.sessions.has(created.value.session.id)).toBe(false);
-    expect(store.state.codeIndex.has(created.value.session.code)).toBe(false);
+    expect(scheduledStore.state.sessions.has(created.value.session.id)).toBe(false);
+    expect(scheduledStore.state.codeIndex.has(created.value.session.code)).toBe(false);
     expect(expired).toEqual([created.value.session.id]);
-    expect(store.terminalReason(created.value.session.id)).toBe('expired');
+    expect(scheduledStore.terminalReason(created.value.session.id)).toBe('expired');
 
     scheduler.advance(SESSION_TTL_MS);
-    expect(store.resourceCounts()).toEqual({ activeSessions: 0, terminalSessions: 0 });
+    expect(scheduledStore.resourceCounts()).toEqual({ activeSessions: 0, terminalSessions: 0 });
     expect(expired).toEqual([created.value.session.id]);
-    store.close();
+    scheduledStore.close();
     expect(scheduler.size).toBe(0);
   });
 
   it('sweeps expired sessions before applying active capacity', () => {
     const now = SESSION_TTL_MS + 100;
     const state = createStoreState();
-    const store = new SessionStore({ state, scheduler: null, clock: () => now });
+    const capacityStore = new SessionStore({ state, scheduler: null, clock: () => now });
     const seedStore = new SessionStore({ scheduler: null, clock: () => 0 });
     const seed = seedStore.create({
       areaLabel: 'Qurum',
@@ -172,7 +169,7 @@ describe('session expiry', () => {
     }
 
     expect(
-      store.create({
+      capacityStore.create({
         areaLabel: 'Muttrah',
         center: { lat: 23.6, lng: 58.4 },
         radiusKm: 3,
@@ -181,12 +178,12 @@ describe('session expiry', () => {
         allowReruns: false,
       }).ok,
     ).toBe(true);
-    expect(store.resourceCounts()).toEqual({
+    expect(capacityStore.resourceCounts()).toEqual({
       activeSessions: 1,
       terminalSessions: STORE_LIMITS.terminalSessions,
     });
     seedStore.close();
-    store.close();
+    capacityStore.close();
   });
 });
 
@@ -194,24 +191,14 @@ describe('collecting lifecycle', () => {
   it('defaults public host nickname sharing off and requires a supplied nickname', () => {
     expect(create().session.shareHostNickname).toBe(false);
     expect(
-      createSession({
-        areaLabel: 'Qurum',
-        center: { lat: 23.5, lng: 58.3 },
-        radiusKm: 3,
+      create({
         nickname: 'Shared Host',
-        color: 0,
-        allowReruns: true,
         shareHostNickname: true,
       }).session.shareHostNickname,
     ).toBe(true);
     expect(
-      createSession({
-        areaLabel: 'Qurum',
-        center: { lat: 23.5, lng: 58.3 },
-        radiusKm: 3,
+      create({
         nickname: '',
-        color: 0,
-        allowReruns: true,
         shareHostNickname: true,
       }).session.shareHostNickname,
     ).toBe(false);
@@ -219,75 +206,87 @@ describe('collecting lifecycle', () => {
 
   it('lets a guest leave but requires the host to end the session', () => {
     const { session, participantToken: hostParticipantToken } = create();
-    const guest = joinSession(session, 'Guest', 1);
-    if ('error' in guest) throw new Error(guest.error);
+    const guest = store.join(session, 'Guest', 1);
+    if (!guest.ok) throw new Error(guest.failure.message);
 
-    expect(leaveSession(session, hostParticipantToken)).toEqual({
+    expect(store.leave(session, hostParticipantToken)).toMatchObject({
       ok: false,
-      error: 'The host must end the session',
+      failure: { kind: 'host-must-end' },
     });
-    expect(leaveSession(session, guest.participantToken)).toEqual({
+    expect(store.leave(session, guest.value.participantToken)).toEqual({
       ok: true,
-      participantId: guest.participantId,
+      value: { participantId: guest.value.participantId },
     });
-    expect(session.participants.map((participant) => participant.id)).not.toContain(guest.participantId);
-    expect(leaveSession(session, guest.participantToken)).toEqual({
+    expect(session.participants.map((participant) => participant.id)).not.toContain(guest.value.participantId);
+    expect(store.leave(session, guest.value.participantToken)).toMatchObject({
       ok: false,
-      error: 'Invalid participant token',
+      failure: { kind: 'invalid-participant' },
     });
   });
 
   it('allows only the host capability to remove a non-host participant once', () => {
     const { session } = create();
-    const guest = joinSession(session, 'Guest', 1);
-    if ('error' in guest) throw new Error(guest.error);
+    const guest = store.join(session, 'Guest', 1);
+    if (!guest.ok) throw new Error(guest.failure.message);
     const host = session.participants.find((participant) => participant.isHost)!;
 
-    expect(removeParticipant(session, 'wrong-token', guest.participantId)).toEqual({
+    expect(store.remove(session, 'wrong-token', guest.value.participantId)).toMatchObject({
       ok: false,
-      error: 'Forbidden',
+      failure: { kind: 'access-required' },
     });
-    expect(removeParticipant(session, session.hostToken, host.id)).toEqual({
+    expect(store.remove(session, session.hostToken, host.id)).toMatchObject({
       ok: false,
-      error: 'The host cannot be removed',
+      failure: { kind: 'host-cannot-be-removed' },
     });
-    expect(removeParticipant(session, session.hostToken, guest.participantId)).toEqual({ ok: true });
-    expect(removeParticipant(session, session.hostToken, guest.participantId)).toEqual({
+    expect(store.remove(session, session.hostToken, guest.value.participantId)).toEqual({
+      ok: true,
+      value: { participantId: guest.value.participantId },
+    });
+    expect(store.remove(session, session.hostToken, guest.value.participantId)).toMatchObject({
       ok: false,
-      error: 'Participant not found',
+      failure: { kind: 'participant-not-found' },
     });
   });
 
   it('locks every collecting mutation before reveal and rerun calculation', () => {
     const { session, participantToken: hostParticipantToken } = create();
-    const guest = joinSession(session, 'Guest', 1);
-    if ('error' in guest) throw new Error(guest.error);
-    expect(submitPrefs(session, hostParticipantToken, prefs)).toBe(true);
-    expect(submitPrefs(session, guest.participantToken, prefs)).toBe(true);
+    const guest = store.join(session, 'Guest', 1);
+    if (!guest.ok) throw new Error(guest.failure.message);
+    expect(store.submit(session, hostParticipantToken, prefs).ok).toBe(true);
+    expect(store.submit(session, guest.value.participantToken, prefs).ok).toBe(true);
 
     expect(
-      reveal(session, session.hostToken, () => {
+      store.reveal(session, session.hostToken, () => {
         expect(session.phase).toBe('locking');
-        expect(joinSession(session, 'Late', 2)).toEqual({ error: 'Voting is closed' });
-        expect(submitPrefs(session, hostParticipantToken, prefs)).toBe(false);
-        expect(leaveSession(session, guest.participantToken)).toEqual({ ok: false, error: 'Voting is closed' });
-        expect(removeParticipant(session, session.hostToken, guest.participantId)).toEqual({
+        expect(store.join(session, 'Late', 2)).toMatchObject({ ok: false, failure: { kind: 'locked' } });
+        expect(store.submit(session, hostParticipantToken, prefs)).toMatchObject({
           ok: false,
-          error: 'Voting is closed',
+          failure: { kind: 'locked' },
+        });
+        expect(store.leave(session, guest.value.participantToken)).toMatchObject({
+          ok: false,
+          failure: { kind: 'locked' },
+        });
+        expect(store.remove(session, session.hostToken, guest.value.participantId)).toMatchObject({
+          ok: false,
+          failure: { kind: 'locked' },
         });
       }),
-    ).toEqual({ ok: true, changed: true });
+    ).toEqual({ ok: true, value: { changed: true } });
     expect(session.phase).toBe('revealed');
     const firstResult = session.result;
-    expect(reveal(session, session.hostToken)).toEqual({ ok: true, changed: false });
+    expect(store.reveal(session, session.hostToken)).toEqual({ ok: true, value: { changed: false } });
     expect(session.result).toBe(firstResult);
 
     expect(
-      rerun(session, session.hostToken, () => {
+      store.rerun(session, session.hostToken, () => {
         expect(session.phase).toBe('locking');
-        expect(submitPrefs(session, hostParticipantToken, prefs)).toBe(false);
+        expect(store.submit(session, hostParticipantToken, prefs)).toMatchObject({
+          ok: false,
+          failure: { kind: 'locked' },
+        });
       }),
-    ).toEqual({ ok: true });
+    ).toEqual({ ok: true, value: undefined });
     expect(['revealed', 'blocked-no-match']).toContain(session.phase);
   });
 });

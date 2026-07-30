@@ -119,7 +119,7 @@ export function computeResult(
   const prefsList = voted.map((p) => p.prefs as Prefs);
   const pool = restaurants.filter((r) => !excludedIds.includes(r.id));
 
-  // --- 1. Hard filter. No candidate is safer than an incompatible candidate. ---
+  // Filter against the union of required simulated dietary evidence.
   const candidates = pool.filter((r) => passesHardFilter(r, prefsList));
   if (candidates.length === 0) {
     return {
@@ -150,7 +150,7 @@ export function computeResult(
   const bordaRaw = candidates.map(() => 0);
   for (let m = 0; m < voted.length; m++) {
     const order = candidates.map((_, ci) => ci).sort((a, b) => utilsByCandidate[b][m] - utilsByCandidate[a][m]);
-    // Fractional Borda: candidates with EQUAL utility for this member share the
+    // Fractional Borda: candidates with equal utility for this member share the
     // average of their rank points (no arbitrary index-order bias, so genuine
     // ties actually reach the tie ladder instead of being silently broken).
     let rank = 0;
@@ -327,7 +327,7 @@ function buildExplanation(
     out.push(`${r.distanceKm.toFixed(1)} km from your area center`);
   }
 
-  // Strict dietary — ONE combined bullet: eliminatedCount is produced by the
+  // Use one combined dietary bullet: eliminatedCount is produced by the
   // union of everyone's enforced strict constraints, so attributing the full
   // count to each person individually would overstate each one's effect.
   if (eliminatedCount > 0) {

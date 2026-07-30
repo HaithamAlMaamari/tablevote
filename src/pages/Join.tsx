@@ -66,7 +66,6 @@ function JoinForm({ codeParam }: { codeParam?: string }) {
     setTiles((t) => {
       const next = [...t];
       if (val.length > 1) {
-        // paste
         for (let k = 0; k < 5; k++) next[k] = val[k] ?? next[k];
       } else {
         next[i] = val;

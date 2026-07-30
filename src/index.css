@@ -47,7 +47,7 @@
   }
 }
 
-/* Cool ticket stock with a faint halftone grain. */
+/* Fixed grain keeps the paper texture stable while content scrolls. */
 .paper-noise::before {
   content: '';
   position: fixed;

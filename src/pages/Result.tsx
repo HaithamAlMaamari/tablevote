@@ -70,7 +70,6 @@ export default function Result() {
     };
   }, [resultKey]);
 
-  // mini-reveal on rerun broadcast
   useEffect(() => {
     if (!transport) return;
     const off = transport.onEvent('rerun', () => {
@@ -122,7 +121,7 @@ export default function Result() {
           </span>
           <h1 className="mt-5 font-display text-[30px] font-semibold tracking-[-0.015em] text-ink">No demo match</h1>
           <p className="mt-3 max-w-sm text-[15px] leading-relaxed text-ink-muted">
-            No fictional fixture has simulated support for every Required item. No requirement was relaxed.
+            No fictional fixture has simulated support for every required item. No requirement was relaxed.
           </p>
           <p className="mt-4 text-[13px] font-semibold text-ink-faint">
             Ask each person to review their own demo requirements privately, then start another round.
@@ -180,7 +179,6 @@ export default function Result() {
         )}
 
         <div className="min-w-0 lg:grid lg:grid-cols-[minmax(0,1.15fr)_minmax(300px,0.85fr)] lg:items-start lg:gap-8">
-          {/* Winner card */}
           <motion.div
             role="status"
             aria-live="polite"
@@ -222,7 +220,6 @@ export default function Result() {
           </motion.div>
 
           <div className="min-w-0 mt-8 lg:mt-0">
-            {/* Participant-private fit */}
             <h2 className="font-display text-[24px] font-semibold tracking-[-0.01em] text-ink">Your private fit</h2>
             <p className="mt-1 text-[13px] font-semibold text-ink-faint">
               Only you can see this score. Other ballots stay private.
@@ -241,7 +238,6 @@ export default function Result() {
               )}
             </div>
 
-            {/* Why this won */}
             <FadeUp className="mt-8">
               <div className="border-l-[6px] border-electric bg-electric-tint p-5">
                 <div className="flex items-center gap-2">
@@ -280,7 +276,6 @@ export default function Result() {
           </div>
         </div>
 
-        {/* Top 3 */}
         <p className="ticket-label mt-10">Runners-up</p>
         <div className="mt-3 grid grid-cols-2 gap-3">
           {top3.slice(1).map((f, i) => (

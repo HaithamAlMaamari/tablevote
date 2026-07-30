@@ -35,7 +35,7 @@ npm run build
 node scripts/capture-screenshots.mjs
 ```
 
-The script drives Playwright deterministically and removes its temporary frames after writing the checked-in assets. [`social-preview.png`](docs/assets/social-preview.png) is also available as a 1280x640 repository preview asset; this repository does not claim that GitHub is configured to use it.
+The script drives Playwright deterministically and removes its temporary frames after writing the checked-in assets. [`social-preview.png`](docs/assets/social-preview.png) is the 1280x640 repository preview asset.
 
 ## Verification
 
@@ -44,7 +44,9 @@ npm run verify
 npm run verify:full
 ```
 
-`verify` runs formatting, lint, documentation and repository guards, catalog reproducibility, tooling and application tests, production dependency policy, and builds. Coverage gates are aggregate across the included core server/domain files; the production smoke launches the built server as a separate process and is intentionally black-box rather than instrumented coverage. `verify:full` adds the built cross-browser suite and production smoke test. The production and full-inventory audits block unapproved high/critical advisories; both inventories are currently clean. Install browser binaries once with `npx playwright install chromium firefox webkit`.
+`verify` runs formatting, lint, documentation and repository guards, catalog reproducibility, tooling and application tests, dependency policy checks, and builds. Coverage gates are aggregate across the included core server/domain files. `verify:full` adds the built cross-browser suite and a black-box production process smoke test.
+
+The dependency checks block unapproved high or critical advisories in both production and full inventories. Install browser binaries once with `npx playwright install chromium firefox webkit`.
 
 Useful focused commands:
 

@@ -9,7 +9,7 @@ import { useSession } from '@/lib/use-session';
 import { SessionStateScreen } from '@/components/session-state';
 import { useSessionPhaseNavigation } from '@/lib/session-routing';
 
-const WAIT_LINE = 'Near ties use least-misery, head-to-head wins, then a deterministic seed.';
+const WAIT_LINE = 'Near ties use least-misery, head-to-head wins, then canonical fixture ID.';
 
 export default function Lobby() {
   const { code = '' } = useParams();

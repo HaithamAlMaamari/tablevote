@@ -11,6 +11,7 @@
 /blob-report/
 /coverage/
 /.nyc_output/
+*.sarif
 
 # Environment overrides and credentials
 .env

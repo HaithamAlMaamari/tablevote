@@ -4,6 +4,22 @@ Notable repository changes are recorded here using [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-07-31
+
+### Changed
+
+- Browser tests and Playwright configuration are now included in the TypeScript build graph.
+- JavaScript tooling is covered by ESLint, and repository link checks validate tracked Markdown anchors.
+- Public copy now describes the deterministic ranking and simulated fixture boundaries consistently.
+
+### Removed
+
+- The unused module-level session store facade, direct Radix Slot dependency, and stale Tailwind scaffold tokens.
+
+### Security
+
+- The Nginx image is digest-pinned and covered by Dependabot updates.
+
 ## [1.0.1] - 2026-07-30
 
 ### Changed
@@ -48,6 +64,7 @@ Notable repository changes are recorded here using [Keep a Changelog](https://ke
 
 - Browser-local session simulation and its separate transport behavior.
 
-[Unreleased]: https://github.com/HaithamAlMaamari/tablevote/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/HaithamAlMaamari/tablevote/compare/v1.0.2...HEAD
+[1.0.2]: https://github.com/HaithamAlMaamari/tablevote/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/HaithamAlMaamari/tablevote/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/HaithamAlMaamari/tablevote/compare/v0.1.0...v1.0.0

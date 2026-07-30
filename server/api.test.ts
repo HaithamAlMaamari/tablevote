@@ -1,5 +1,3 @@
-// Smoke test: create → join ×3 → submit ×3 → reveal → result shape
-// (REST via supertest + live state via socket.io-client).
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { io as ioc, type Socket } from 'socket.io-client';
@@ -39,7 +37,6 @@ describe('server API + socket smoke', () => {
   });
 
   it('full flow produces a valid result', async () => {
-    // create (REST)
     const create = await request(app)
       .post('/api/sessions')
       .send({
@@ -72,14 +69,12 @@ describe('server API + socket smoke', () => {
     expect(authorizedState.status).toBe(200);
     expect(authorizedState.body.state.selfParticipantId).toBe(hostId);
 
-    // host watches state over socket
     const states: SessionSnapshot[] = [];
     const emit = <T>(ev: string, data: unknown) => new Promise<T>((res) => sock.emit(ev, data, (r: T) => res(r)));
     const attach = await emit<{ state: SessionSnapshot }>('attach', { sessionId, token: hostPT });
     expect(attach.state.code).toBe(code);
     sock.on('state', (s: SessionSnapshot) => states.push(s));
 
-    // join ×3 (REST)
     const guests: { token: string }[] = [];
     for (const [i, nick] of ['Maya', 'Jo', 'Pri'].entries()) {
       const j = await request(app)
@@ -89,7 +84,6 @@ describe('server API + socket smoke', () => {
       guests.push({ token: j.body.participantToken });
     }
 
-    // host submit (socket), guests submit (REST)
     const hs = await emit<{ ok: boolean }>('submit', {
       sessionId,
       token: hostPT,
@@ -106,11 +100,9 @@ describe('server API + socket smoke', () => {
       expect(s.status).toBe(200);
     }
 
-    // reveal with wrong token → 403
     const bad = await request(app).post(`/api/sessions/${code}/reveal`).send({ hostToken: 'wrong-token-xx' });
     expect(bad.status).toBe(403);
 
-    // reveal (REST, host token)
     const rev = await request(app).post(`/api/sessions/${code}/reveal`).send({ hostToken });
     expect(rev.status).toBe(200);
     expect(rev.body).toEqual({ ok: true });
@@ -134,14 +126,12 @@ describe('server API + socket smoke', () => {
       /perPerson|scoringSheet|meanUtility|minUtility|cuisineScore|priceScore|distanceScore|explanation/,
     );
 
-    // state broadcasts were received
     await new Promise((r) => setTimeout(r, 100));
     expect(states.length).toBeGreaterThan(0);
     expect(states.some((socketState) => socketState.phase === 'locking')).toBe(true);
     expect(states.at(-1)?.phase).toBe('revealed');
     expect(states.at(-1)?.selfParticipantId).toBe(hostId);
 
-    // re-run excludes previous winner
     const firstWinner = result.winner.restaurant.id;
     const rr = await request(app).post(`/api/sessions/${code}/rerun`).send({ hostToken });
     expect(rr.status).toBe(200);
