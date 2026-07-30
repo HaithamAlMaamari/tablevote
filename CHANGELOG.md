@@ -4,6 +4,12 @@ Notable repository changes are recorded here using [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-07-31
+
+### Security
+
+- Updated the digest-pinned Nginx Alpine image from 1.27 to the maintained 1.31 line.
+
 ## [1.0.2] - 2026-07-31
 
 ### Changed
@@ -64,7 +70,8 @@ Notable repository changes are recorded here using [Keep a Changelog](https://ke
 
 - Browser-local session simulation and its separate transport behavior.
 
-[Unreleased]: https://github.com/HaithamAlMaamari/tablevote/compare/v1.0.2...HEAD
+[Unreleased]: https://github.com/HaithamAlMaamari/tablevote/compare/v1.0.3...HEAD
+[1.0.3]: https://github.com/HaithamAlMaamari/tablevote/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/HaithamAlMaamari/tablevote/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/HaithamAlMaamari/tablevote/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/HaithamAlMaamari/tablevote/compare/v0.1.0...v1.0.0
