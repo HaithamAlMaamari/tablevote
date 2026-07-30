@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type {
   CreateSessionRequest,
   CreateSessionResponse,
@@ -6,6 +7,7 @@ import type {
   JoinSessionResponse,
   ParticipantMutationRequest,
   RemoveParticipantRequest,
+  SubmitResponse,
   SubmitPrefsRequest,
 } from '../shared/contracts';
 import { domainFailure, type DomainFailure } from '../shared/failures';
@@ -40,6 +42,7 @@ export interface OperationSuccess {
   status: number;
   body: Record<string, unknown>;
   replayed: boolean;
+  sessionId: string;
 }
 
 export interface OperationFailure {
@@ -63,6 +66,7 @@ interface ReplayEntry {
   status: number;
   body: Record<string, unknown>;
   expiresAt: number;
+  sessionId: string;
 }
 
 export class OperationService {
@@ -85,11 +89,21 @@ export class OperationService {
   execute(command: OperationCommand, emit: (effect: OperationEffect) => void = () => {}): OperationOutcome {
     if (command.kind === 'attach') return this.attach(command, emit);
 
-    const replay = this.replay(command);
+    let replay = this.replay(command);
+    if (replay.entry && command.kind !== 'end' && !this.store.get(replay.entry.sessionId)) {
+      this.purgeSessionReplays(replay.entry.sessionId);
+      replay = { key: replay.key, fingerprint: replay.fingerprint };
+    }
     if (replay.conflict) return this.fail('request-conflict');
     if (replay.entry) {
       this.restoreAttachment(command, replay.entry.body, emit);
-      return { ok: true, status: replay.entry.status, body: replay.entry.body, replayed: true };
+      return {
+        ok: true,
+        status: replay.entry.status,
+        body: replay.entry.body,
+        replayed: true,
+        sessionId: replay.entry.sessionId,
+      };
     }
 
     const bucket = command.kind === 'create' || command.kind === 'join' ? 'create-join' : 'operations';
@@ -103,6 +117,12 @@ export class OperationService {
   sweepReplays(now = this.clock()): void {
     for (const [key, entry] of this.replays) {
       if (entry.expiresAt <= now) this.replays.delete(key);
+    }
+  }
+
+  purgeSessionReplays(sessionId: string): void {
+    for (const [key, entry] of this.replays) {
+      if (entry.sessionId === sessionId) this.replays.delete(key);
     }
   }
 
@@ -124,7 +144,7 @@ export class OperationService {
         participantId,
         state: this.project(session, participant),
       } satisfies CreateSessionResponse;
-      return this.succeed(201, body);
+      return this.succeed(201, body, session.id);
     }
 
     const reference = command.kind === 'join' ? (command.input.sessionId ?? command.input.code!) : command.sessionId;
@@ -144,7 +164,7 @@ export class OperationService {
         participantId: joined.value.participantId,
         state: this.project(session, joined.value.participant),
       } satisfies JoinSessionResponse;
-      return this.succeed(201, body);
+      return this.succeed(201, body, session.id);
     }
 
     if (command.kind === 'submit') {
@@ -155,7 +175,11 @@ export class OperationService {
         return this.fromFailure(normalized);
       }
       emit({ kind: 'broadcast', sessionId: session.id });
-      return this.succeed(200, { ok: true, state: this.project(session, submitted.value.participant) });
+      const body = {
+        ok: true,
+        state: this.project(session, submitted.value.participant),
+      } satisfies SubmitResponse;
+      return this.succeed(200, body, session.id);
     }
 
     if (command.kind === 'leave') {
@@ -163,7 +187,7 @@ export class OperationService {
       if (!left.ok) return this.fromFailure(left.failure);
       emit({ kind: 'evict', session, participantId: left.value.participantId });
       emit({ kind: 'broadcast', sessionId: session.id });
-      return this.succeed(200, { ok: true });
+      return this.succeed(200, { ok: true }, session.id);
     }
 
     if (command.kind === 'remove') {
@@ -171,7 +195,7 @@ export class OperationService {
       if (!removed.ok) return this.fromFailure(removed.failure);
       emit({ kind: 'evict', session, participantId: removed.value.participantId });
       emit({ kind: 'broadcast', sessionId: session.id });
-      return this.succeed(200, { ok: true });
+      return this.succeed(200, { ok: true }, session.id);
     }
 
     if (command.kind === 'reveal') {
@@ -181,6 +205,7 @@ export class OperationService {
           emit({ kind: 'broadcast', sessionId: session.id });
         });
       } catch {
+        emit({ kind: 'broadcast', sessionId: session.id });
         return this.fail('unavailable');
       }
       if (!revealed.ok) return this.fromFailure(revealed.failure);
@@ -188,7 +213,7 @@ export class OperationService {
         emit({ kind: 'broadcast', sessionId: session.id });
         emit({ kind: 'revealed', sessionId: session.id });
       }
-      return this.succeed(200, { ok: true });
+      return this.succeed(200, { ok: true }, session.id);
     }
 
     if (command.kind === 'rerun') {
@@ -198,18 +223,20 @@ export class OperationService {
           emit({ kind: 'broadcast', sessionId: session.id });
         });
       } catch {
+        emit({ kind: 'broadcast', sessionId: session.id });
         return this.fail('unavailable');
       }
       if (!rerun.ok) return this.fromFailure(rerun.failure);
       emit({ kind: 'broadcast', sessionId: session.id });
       emit({ kind: 'rerun', sessionId: session.id });
-      return this.succeed(200, { ok: true });
+      return this.succeed(200, { ok: true }, session.id);
     }
 
     const ended = this.store.end(session.id, command.input.hostToken);
     if (!ended.ok) return this.fromFailure(ended.failure);
+    this.purgeSessionReplays(session.id);
     emit({ kind: 'ended', sessionId: session.id });
-    return this.succeed(200, { ok: true });
+    return this.succeed(200, { ok: true }, session.id);
   }
 
   private attach(
@@ -224,7 +251,7 @@ export class OperationService {
     if (!participant) return this.fail('attach-not-found');
     emit({ kind: 'attach', session, participant });
     emit({ kind: 'broadcast', sessionId: session.id });
-    return this.succeed(200, { state: this.project(session, participant) });
+    return this.succeed(200, { state: this.project(session, participant) }, session.id);
   }
 
   private project(session: Session, participant: Participant): SessionSnapshot {
@@ -245,13 +272,17 @@ export class OperationService {
     const key = `${command.kind}:${command.input.requestId}`;
     const input = { ...command.input } as Record<string, unknown>;
     delete input.requestId;
-    const fingerprint = JSON.stringify({ ...command, input });
+    const fingerprint = createHash('sha256')
+      .update(JSON.stringify({ ...command, input }))
+      .digest('base64url');
     const entry = this.replays.get(key);
     if (!entry || entry.expiresAt <= this.clock()) {
       if (entry) this.replays.delete(key);
       return { key, fingerprint };
     }
-    return entry.fingerprint === fingerprint ? { key, fingerprint, entry } : { key, fingerprint, conflict: true };
+    return entry.fingerprint === fingerprint
+      ? { key, fingerprint, entry }
+      : { key, fingerprint, entry, conflict: true };
   }
 
   private remember(key: string, fingerprint: string, outcome: OperationSuccess): void {
@@ -264,6 +295,7 @@ export class OperationService {
       status: outcome.status,
       body: outcome.body,
       expiresAt: this.clock() + TRANSPORT_POLICY.mutationReplayTtlMs,
+      sessionId: outcome.sessionId,
     });
   }
 
@@ -280,8 +312,8 @@ export class OperationService {
     if (session && participant) emit({ kind: 'attach', session, participant });
   }
 
-  private succeed(status: number, body: Record<string, unknown>): OperationSuccess {
-    return { ok: true, status, body, replayed: false };
+  private succeed(status: number, body: Record<string, unknown>, sessionId: string): OperationSuccess {
+    return { ok: true, status, body, replayed: false, sessionId };
   }
 
   private fail(kind: Parameters<typeof domainFailure>[0]): OperationFailure {

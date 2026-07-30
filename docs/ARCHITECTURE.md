@@ -68,7 +68,7 @@ The ranking function first applies hard dietary evidence constraints, then compu
 
 ## Deployment Boundary
 
-The built server can serve static assets, REST, and Socket.IO from one port. In production mode it requires exact HTTPS origins and a positive trusted-proxy hop count, and it rejects HTTP requests based on the configured proxy trust. Originless non-browser clients are still admitted to the transport boundary and must present capabilities for protected operations.
+The built server can serve static assets, REST, and Socket.IO from one port. In production mode it requires exact HTTPS origins and a positive trusted-proxy hop count, and it rejects HTTP requests based on the configured proxy trust. Engine.IO transport admission enforces process-wide and trusted-client-address connection ceilings, releases capacity on raw transport close, times out transports that never attach to an authorized session, and separately throttles malformed or unknown-session transport traffic. Originless non-browser clients are still admitted to the transport boundary and must present capabilities for protected operations.
 
 The repository provides a loopback proxy validation harness, not a hosted topology. A public service would additionally need durable transactional state, multi-instance coordination, secret management, redacted observability, backups, incident ownership, abuse handling, and a deployment-specific security review.
 

@@ -145,9 +145,9 @@ export interface ClientFinalist {
 
 export interface ClientMatchedResult {
   kind: 'match';
-  algorithmVersion: string;
+  algorithmVersion: typeof ALGORITHM_VERSION;
   winner: ClientFinalist;
-  top3: ClientFinalist[];
+  top3: [ClientFinalist, ...ClientFinalist[]];
   ownWinnerFit: number | null;
   tiebreak: Tiebreak;
   round: number;
@@ -156,7 +156,7 @@ export interface ClientMatchedResult {
 
 export interface ClientNoVerifiedMatchResult {
   kind: 'no-verified-match';
-  algorithmVersion: string;
+  algorithmVersion: typeof ALGORITHM_VERSION;
   round: number;
   previousWinners: string[];
 }
@@ -227,7 +227,7 @@ export interface ScoringRow {
 
 export interface MatchedVoteResult {
   kind: 'match';
-  algorithmVersion: string;
+  algorithmVersion: typeof ALGORITHM_VERSION;
   winner: Finalist;
   top3: Finalist[];
   eliminatedCount: number;
@@ -240,7 +240,7 @@ export interface MatchedVoteResult {
 
 export interface NoVerifiedMatchResult {
   kind: 'no-verified-match';
-  algorithmVersion: string;
+  algorithmVersion: typeof ALGORITHM_VERSION;
   eliminatedCount: number;
   round: number;
   previousWinners: string[];

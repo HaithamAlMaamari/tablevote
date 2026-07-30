@@ -89,7 +89,6 @@ export default function Reveal() {
   const winnerHeadingRef = useRef<HTMLHeadingElement>(null);
 
   const result = state?.result?.kind === 'match' ? state.result : null;
-  const top3 = result?.top3 ?? [];
 
   useEffect(() => {
     if (state?.result?.kind === 'no-verified-match') {
@@ -136,7 +135,10 @@ export default function Reveal() {
     );
   }
 
-  const [third, second, winner] = [top3[2], top3[1], top3[0]];
+  const top3 = result.top3;
+  const winner = top3[0];
+  const second = top3[1];
+  const third = top3[2];
   const votes = state?.participants.filter((p) => p.submitted).length ?? 0;
   const fitLabel =
     winner.groupFit === 'strong'

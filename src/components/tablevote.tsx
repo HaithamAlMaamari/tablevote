@@ -8,15 +8,12 @@ import { btnVariants, type BtnVariant } from '@/components/ui/button-styles';
 import { cn } from '@/lib/utils';
 import { EASE_POP, EASE_STANDARD } from '@/lib/motion';
 import { cuisineCode } from '@/lib/cuisine-marks';
+import tableVoteMark from '@/assets/tablevote-mark.svg';
 
 export function Logo({ className }: { className?: string }) {
   return (
     <span className={cn('flex items-center gap-2.5', className)}>
-      <svg width="30" height="25" viewBox="0 0 60 50" aria-hidden>
-        <path d="M3 5h54v40H3z" fill="#FCFDF8" stroke="#241329" strokeWidth="5" />
-        <path d="M3 16h54" stroke="#EF3340" strokeWidth="5" />
-        <path d="m18 30 7 7 17-18" fill="none" stroke="#2457FF" strokeWidth="6" />
-      </svg>
+      <img src={tableVoteMark} alt="" width="30" height="25" aria-hidden="true" />
       <span className="hidden font-display text-[22px] font-extrabold tracking-[-0.04em] text-ink min-[360px]:inline">
         TableVote
       </span>

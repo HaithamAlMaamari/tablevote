@@ -114,6 +114,48 @@ describe('terminal socket lifecycle matrix', () => {
     expect((await guestUpdate).participants).toHaveLength(4);
   });
 
+  it('purges create, join, and submit replays when a session passively expires', async () => {
+    const createInput = {
+      areaLabel: 'Expiring replay session',
+      center: { lat: 23.588, lng: 58.3829 },
+      radiusKm: 10,
+      nickname: 'Host',
+      color: 0,
+      allowReruns: true,
+      requestId: '40000000-0000-4000-8000-000000000001',
+    };
+    const created = await request(app).post('/api/sessions').send(createInput);
+    const joinInput = {
+      sessionId: created.body.sessionId,
+      nickname: 'Guest',
+      color: 1,
+      requestId: '40000000-0000-4000-8000-000000000002',
+    };
+    const joined = await request(app).post('/api/sessions/join').send(joinInput);
+    const submitInput = {
+      token: joined.body.participantToken,
+      prefs,
+      requestId: '40000000-0000-4000-8000-000000000003',
+    };
+    const submitted = await request(app).post(`/api/sessions/${created.body.sessionId}/submit`).send(submitInput);
+    expect(submitted.status).toBe(200);
+
+    store.get(created.body.sessionId)!.createdAt = Date.now() - SESSION_TTL_MS;
+    expect((await request(app).get(`/api/sessions/${created.body.sessionId}`)).status).toBe(410);
+
+    const replayedJoin = await request(app).post('/api/sessions/join').send(joinInput);
+    const replayedSubmit = await request(app).post(`/api/sessions/${created.body.sessionId}/submit`).send(submitInput);
+    expect(replayedJoin).toMatchObject({ status: 410, body: { errorCode: 'expired' } });
+    expect(replayedSubmit).toMatchObject({ status: 410, body: { errorCode: 'expired' } });
+    expect(replayedJoin.body).not.toEqual(joined.body);
+    expect(replayedSubmit.body).not.toEqual(submitted.body);
+
+    const recreated = await request(app).post('/api/sessions').send(createInput);
+    expect(recreated.status).toBe(201);
+    expect(recreated.body.sessionId).not.toBe(created.body.sessionId);
+    expect(recreated.body.participantToken).not.toBe(created.body.participantToken);
+  });
+
   it('keeps revealed sessions unchanged across rejected REST and socket mutations', async () => {
     const session = await createAndAttach();
     const guest = await request(app).post('/api/sessions/join').send({

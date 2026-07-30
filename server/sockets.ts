@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import type { IncomingMessage } from 'node:http';
 import type { Server, Socket } from 'socket.io';
 import {
   AttachRequestSchema,
@@ -33,22 +34,83 @@ const nodeScheduler: SocketScheduler = {
 
 export class SocketAdmission {
   private readonly handshakes: FixedWindowQuota;
+  private readonly invalidRequests: FixedWindowQuota;
   private readonly connectionsByAddress = new Map<string, number>();
+  private readonly pending = new WeakMap<IncomingMessage, () => void>();
+  private readonly transports = new Set<{
+    active: boolean;
+    release: () => void;
+    timer: SocketTimer;
+  }>();
+  private readonly transportState = new WeakMap<Socket['client']['conn'], (attached?: boolean) => void>();
   private readonly releases = new Set<() => void>();
   private connections = 0;
+  private closed = false;
 
   constructor(
     private readonly limits: ServerQuotaLimits,
     private readonly clock: () => number = () => Date.now(),
+    private readonly scheduler: SocketScheduler = nodeScheduler,
   ) {
     this.handshakes = new FixedWindowQuota(limits.windowMs, limits.trackedSocketAddresses);
+    this.invalidRequests = new FixedWindowQuota(limits.windowMs, limits.trackedSocketAddresses);
   }
 
-  allowHandshake(address: string): boolean {
-    return this.handshakes.allow(address, this.limits.socketHandshakesPerAddress, this.clock());
+  reserve(request: IncomingMessage, address: string): boolean {
+    if (this.closed) return false;
+    if (!this.handshakes.allow(address, this.limits.socketHandshakesPerAddress, this.clock())) return false;
+    const release = this.admit(address);
+    if (!release) return false;
+    this.pending.set(request, release);
+    return true;
   }
 
-  admit(address: string): (() => void) | null {
+  allowInvalidRequest(address: string): boolean {
+    return this.invalidRequests.allow(address, this.limits.socketHandshakesPerAddress, this.clock());
+  }
+
+  bind(transport: Socket['client']['conn']): void {
+    const release = this.pending.get(transport.request);
+    if (!release || this.closed) {
+      release?.();
+      this.pending.delete(transport.request);
+      transport.close(true);
+      return;
+    }
+    this.pending.delete(transport.request);
+    const timer = this.scheduler.setTimeout(() => transport.close(true), this.limits.unauthenticatedSocketTimeoutMs);
+    timer.unref?.();
+    const state = { active: true, release, timer };
+    this.transports.add(state);
+    const cleanup = (attached = false) => {
+      if (!state.active) return;
+      if (attached) {
+        this.scheduler.clearTimeout(state.timer);
+        this.transportState.delete(transport);
+        return;
+      }
+      state.active = false;
+      this.scheduler.clearTimeout(state.timer);
+      this.transports.delete(state);
+      this.transportState.delete(transport);
+      release();
+    };
+    this.transportState.set(transport, cleanup);
+    transport.once('close', () => cleanup());
+  }
+
+  reject(request: IncomingMessage): void {
+    const release = this.pending.get(request);
+    if (!release) return;
+    this.pending.delete(request);
+    release();
+  }
+
+  attach(transport: Socket['client']['conn']): void {
+    this.transportState.get(transport)?.(true);
+  }
+
+  private admit(address: string): (() => void) | null {
     const addressConnections = this.connectionsByAddress.get(address) ?? 0;
     if (
       this.connections >= this.limits.socketConnections ||
@@ -72,9 +134,18 @@ export class SocketAdmission {
   }
 
   close(): void {
+    this.closed = true;
+    for (const state of [...this.transports]) {
+      if (!state.active) continue;
+      state.active = false;
+      this.scheduler.clearTimeout(state.timer);
+      state.release();
+    }
+    this.transports.clear();
     for (const release of [...this.releases]) release();
     this.connectionsByAddress.clear();
     this.handshakes.sweep(Number.POSITIVE_INFINITY);
+    this.invalidRequests.sweep(Number.POSITIVE_INFINITY);
   }
 }
 
@@ -90,30 +161,11 @@ export function registerSocketHandlers(
   addressQuota: FixedWindowQuota,
   admission: SocketAdmission,
   addressFor: (socket: Socket) => string,
-  scheduler: SocketScheduler = nodeScheduler,
 ): () => void {
-  const idleHandles = new Map<string, SocketTimer>();
-  io.use((socket, next) => {
-    const release = admission.admit(addressFor(socket));
-    if (!release) return next(new Error('Socket connection limit reached'));
-    socket.once('disconnect', release);
-    next();
-  });
   io.on('connection', (socket) =>
-    registerConnection(
-      socket,
-      operations,
-      presence,
-      quotaLimits,
-      addressQuota,
-      addressFor(socket),
-      idleHandles,
-      scheduler,
-    ),
+    registerConnection(socket, operations, presence, quotaLimits, addressQuota, addressFor(socket), admission),
   );
   return () => {
-    for (const handle of idleHandles.values()) scheduler.clearTimeout(handle);
-    idleHandles.clear();
     admission.close();
   };
 }
@@ -125,19 +177,9 @@ function registerConnection(
   quotaLimits: ServerQuotaLimits,
   addressQuota: FixedWindowQuota,
   address: string,
-  idleHandles: Map<string, SocketTimer>,
-  scheduler: SocketScheduler,
+  admission: SocketAdmission,
 ): void {
   let attachment: SocketAttachment | null = null;
-  const idleHandle = scheduler.setTimeout(() => socket.disconnect(true), quotaLimits.unauthenticatedSocketTimeoutMs);
-  idleHandles.set(socket.id, idleHandle);
-  idleHandle.unref?.();
-  const clearIdle = () => {
-    const handle = idleHandles.get(socket.id);
-    if (!handle) return;
-    scheduler.clearTimeout(handle);
-    idleHandles.delete(socket.id);
-  };
   const socketQuota = new FixedWindowQuota(quotaLimits.windowMs, 2);
   const reply = (callback: unknown, payload: unknown) => {
     if (typeof callback === 'function') (callback as Reply)(payload);
@@ -152,7 +194,7 @@ function registerConnection(
   const execute = (command: OperationCommand, callback: unknown) => {
     const outcome = operations.execute(command, (effect) => {
       attachment = presence.apply(effect, socket, attachment);
-      if (attachment) clearIdle();
+      if (attachment) admission.attach(socket.client.conn);
     });
     reply(callback, outcome.body);
   };
@@ -223,7 +265,6 @@ function registerConnection(
   }
 
   socket.on('disconnect', () => {
-    clearIdle();
     presence.disconnect(socket, attachment);
   });
 }

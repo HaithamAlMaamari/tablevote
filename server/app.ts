@@ -1,5 +1,5 @@
 import express, { type ErrorRequestHandler } from 'express';
-import { createServer } from 'node:http';
+import { createServer, type ServerResponse } from 'node:http';
 import { Server as SocketServer } from 'socket.io';
 import helmet from 'helmet';
 import rateLimit, { MemoryStore } from 'express-rate-limit';
@@ -49,28 +49,43 @@ export function buildApp(options: BuildAppOptions = {}) {
   const io = new SocketServer(http, {
     maxHttpBufferSize: INPUT_POLICY.socketPayloadBytes,
     allowRequest: (req, callback) => {
-      const requestUrl = new URL(req.url ?? '/', 'http://localhost');
-      if (
-        !requestUrl.searchParams.has('sid') &&
-        !socketAdmission.allowHandshake(resolveClientAddress(req, deployment.trustProxyHops))
-      ) {
-        return callback(null, false);
-      }
       const origin = req.headers.origin;
       const forwardedProto = String(req.headers['x-forwarded-proto'] ?? '')
         .split(',')[0]
         .trim();
       if (deployment.requireHttps && forwardedProto !== 'https') return callback(null, false);
-      if (!origin) return callback(null, true);
-      if (deployment.production) return callback(null, deployment.allowedOrigins.has(origin));
-      try {
-        const sameOrigin = new URL(origin).host === req.headers.host;
-        callback(null, sameOrigin || deployment.allowedOrigins.has(origin));
-      } catch {
-        callback(null, false);
+      if (origin) {
+        if (deployment.production && !deployment.allowedOrigins.has(origin)) return callback(null, false);
+        if (!deployment.production) {
+          try {
+            const sameOrigin = new URL(origin).host === req.headers.host;
+            if (!sameOrigin && !deployment.allowedOrigins.has(origin)) return callback(null, false);
+          } catch {
+            return callback(null, false);
+          }
+        }
       }
+      callback(null, socketAdmission.reserve(req, resolveClientAddress(req, deployment.trustProxyHops)));
     },
   });
+  const engineClients = io.engine as unknown as { clients: Record<string, unknown> };
+  io.engine.use((req: IncomingMessage, res: ServerResponse, next: () => void) => {
+    const query = new URL(req.url ?? '/', 'http://localhost').searchParams;
+    const sid = query.get('sid');
+    const malformed =
+      query.get('EIO') !== '4' ||
+      !['polling', 'websocket'].includes(query.get('transport') ?? '') ||
+      (sid === null && req.method !== 'GET') ||
+      (sid !== null && !Object.hasOwn(engineClients.clients, sid));
+    if (!malformed || socketAdmission.allowInvalidRequest(resolveClientAddress(req, deployment.trustProxyHops))) {
+      return next();
+    }
+    res.statusCode = 429;
+    res.setHeader('Retry-After', String(Math.max(1, Math.ceil(quotaLimits.windowMs / 1_000))));
+    res.end('Too many invalid transport requests');
+  });
+  io.engine.on('connection', (transport) => socketAdmission.bind(transport));
+  io.engine.on('connection_error', ({ req }: { req: IncomingMessage }) => socketAdmission.reject(req));
   const presence = new SessionPresence(io, store, clock);
 
   if (deployment.trustProxyHops > 0) app.set('trust proxy', deployment.trustProxyHops);
@@ -181,7 +196,10 @@ export function buildApp(options: BuildAppOptions = {}) {
     (socket) => resolveClientAddress(socket.conn.request, deployment.trustProxyHops),
   );
 
-  const stopExpirationNotifications = store.onExpired((session) => presence.expire(session));
+  const stopExpirationNotifications = store.onExpired((session) => {
+    operations.purgeSessionReplays(session.id);
+    presence.expire(session);
+  });
   const quotaSweep = setInterval(() => {
     const now = clock();
     globalApiQuota.sweep(now);

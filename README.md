@@ -11,7 +11,7 @@ TableVote is an accountless group-dining prototype that turns private ballots in
 
 ## Quickstart
 
-Requires Node.js `22.22+` within Node 22, or Node.js `24+`, plus npm and a modern browser.
+Requires Node.js `22.22+` within Node 22, or Node.js `24`, plus npm and a modern browser.
 
 ```bash
 npm ci
@@ -28,7 +28,7 @@ For a two-person evaluation, create a table in one browser profile and join its 
 
 The walkthrough is captured from separate host and guest browser contexts against the built local app. Static references remain available for the [landing screen](docs/assets/landing.png), [private ballot](docs/assets/ballot.png), and [final result](docs/assets/result.png).
 
-To regenerate it, install FFmpeg 8 and make `ffmpeg` available on `PATH`, then run a fresh production build followed by the package-independent capture entry point:
+To regenerate it, install FFmpeg (tested with FFmpeg 8) and make `ffmpeg` available on `PATH`, then run a fresh production build followed by the package-independent capture entry point:
 
 ```bash
 npm run build
@@ -44,14 +44,14 @@ npm run verify
 npm run verify:full
 ```
 
-`verify` runs formatting, lint, documentation and repository guards, catalog reproducibility, tooling and application tests, production dependency policy, and builds. `verify:full` adds the built cross-browser suite and production smoke test. Install browser binaries once with `npx playwright install chromium firefox webkit`.
+`verify` runs formatting, lint, documentation and repository guards, catalog reproducibility, tooling and application tests, production dependency policy, and builds. Coverage gates are aggregate across the included core server/domain files; the production smoke launches the built server as a separate process and is intentionally black-box rather than instrumented coverage. `verify:full` adds the built cross-browser suite and production smoke test. The production and full-inventory audits block unapproved high/critical advisories; both inventories are currently clean. Install browser binaries once with `npx playwright install chromium firefox webkit`.
 
 Useful focused commands:
 
 | Command                 | Purpose                                               |
 | ----------------------- | ----------------------------------------------------- |
 | `npm test`              | Unit and integration tests                            |
-| `npm run test:coverage` | Enforce core server/domain coverage thresholds        |
+| `npm run test:coverage` | Enforce aggregate core server/domain coverage gates   |
 | `npm run test:browser`  | Build and run browser flows                           |
 | `npm run check:docs`    | Validate local Markdown links                         |
 | `npm run check:catalog` | Check deterministic fixture generation                |
@@ -116,7 +116,7 @@ This is deterministic consensus ranking over simulated inputs, not a proof that 
 
 | Symptom                                            | Check                                                                                                         |
 | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Unsupported engine during install                  | Use Node.js `22.22+` on the Node 22 line, or `24+`; Node 23 is outside the declared range.                    |
+| Unsupported engine during install                  | Use Node.js `22.22+` on the Node 22 line, or Node.js `24`; other major lines are outside the declared range.  |
 | Client reports the server unavailable              | Confirm both `web` and `api` processes from `npm run dev` are still running and ports `3000`/`3001` are free. |
 | A second participant replaces the first            | Use Incognito or another browser profile, not another tab in the same profile.                                |
 | Browser tests cannot launch                        | Run `npx playwright install chromium firefox webkit`.                                                         |
