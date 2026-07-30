@@ -16,6 +16,7 @@ Notable repository changes are recorded here using [Keep a Changelog](https://ke
 - Exact scheduled session expiry, bounded socket admission, and real-process production smoke coverage.
 - Seeded ranking invariants, REST/Socket parity tests, and enforced core coverage thresholds.
 - A reproducible evaluator walkthrough, social preview, and table-ticket visual system.
+- Tag-verified release automation with a source archive, CycloneDX SBOM, and SHA-256 checksums.
 
 ### Changed
 
