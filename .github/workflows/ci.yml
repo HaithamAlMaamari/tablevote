@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    strategy:
+      matrix:
+        node-version: [20, 22]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+      - run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Documentation links
+        run: npm run check:docs
+      - name: Repository files
+        run: npm run check:repo
+      - name: Fictional catalog
+        run: npm run check:catalog
+      - name: Test
+        run: npm test
+      - name: Production dependency policy
+        run: npm run audit:prod
+      - name: Build
+        run: npm run build
+      - name: Install browser matrix
+        if: matrix.node-version == 20
+        run: npx playwright install --with-deps chromium firefox webkit
+      - name: Browser and accessibility tests
+        if: matrix.node-version == 20
+        run: npm run test:browser
+      - name: Upload browser report
+        if: failure() && matrix.node-version == 20
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Production-only runtime smoke
+        run: |
+          npm prune --omit=dev
+          npm run smoke:prod

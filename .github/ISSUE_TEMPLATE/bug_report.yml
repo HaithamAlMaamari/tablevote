@@ -1,0 +1,56 @@
+name: Bug report
+description: Something broke at the table
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for taking the time to file a bug!
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Also tell us what you expected to happen.
+      placeholder: The reveal button stayed disabled even though 3 friends voted…
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. Create session\n2. Join from a separate browser profile\n3. …"
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Which mode were you running?
+      options:
+        - Dev server (npm run dev)
+        - Built single-port server (npm run build && npm start)
+        - Local demo mode (development only)
+        - Not sure
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      placeholder: "Browser & version, OS, Node version"
+  - type: markdown
+    attributes:
+      value: >-
+        **Protect table privacy:** before attaching diagnostics, remove authorization headers,
+        participant or host tokens, invite codes and URLs, nicknames, exact locations, ballots,
+        dietary requirements, and restaurant selections.
+  - type: checkboxes
+    id: redaction
+    attributes:
+      label: Privacy check
+      options:
+        - label: I removed private session and participant data from anything attached below.
+          required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs / console output
+      description: Include only the minimum redacted lines needed to explain the problem.
+      render: shell

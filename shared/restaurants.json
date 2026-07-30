@@ -1,0 +1,714 @@
+[
+  {
+    "id": "demo-01",
+    "name": "Demo Italian Table 01",
+    "cuisines": [
+      "Italian",
+      "Japanese"
+    ],
+    "priceTier": 1,
+    "rating": 3.6,
+    "distanceKm": 0.5,
+    "lat": 0,
+    "lng": 0,
+    "address": "Fictional District A",
+    "dietaryOptions": [
+      "vegetarian",
+      "vegan",
+      "halal",
+      "kosher",
+      "gluten-free"
+    ],
+    "openNow": false
+  },
+  {
+    "id": "demo-02",
+    "name": "Demo Indian Table 02",
+    "cuisines": [
+      "Indian"
+    ],
+    "priceTier": 2,
+    "rating": 4.3,
+    "distanceKm": 1.8,
+    "lat": 0,
+    "lng": 0,
+    "address": "Fictional District B",
+    "dietaryOptions": [
+      "halal"
+    ],
+    "openNow": true
+  },
+  {
+    "id": "demo-03",
+    "name": "Demo Lebanese Table 03",
+    "cuisines": [
+      "Lebanese"
+    ],
+    "priceTier": 3,
+    "rating": 3.6,
+    "distanceKm": 3.1,
+    "lat": 0,
+    "lng": 0,
+    "address": "Fictional District C",
+    "dietaryOptions": [
+      "vegetarian",
+      "vegan"
+    ],
+    "openNow": true
+  },
+  {
+    "id": "demo-04",
+    "name": "Demo Japanese Table 04",
+    "cuisines": [
+      "Japanese",
+      "Seafood"
+    ],
+    "priceTier": 4,
+    "rating": 4.3,
+    "distanceKm": 4.4,
+    "lat": 0,
+    "lng": 0,
+    "address": "Fictional District D",
+    "dietaryOptions": [
+      "vegetarian",
+      "kosher"
+    ],
+    "openNow": true
+  },
+  {
+    "id": "demo-05",
+    "name": "Demo Turkish Table 05",
+    "cuisines": [
+      "Turkish"
+    ],
+    "priceTier": 1,
+    "rating": 3.6,
+    "distanceKm": 5.7,
+    "lat": 0,
+    "lng": 0,
+    "address": "Fictional District E",
+    "dietaryOptions": [
+      "halal",
+      "gluten-free"
+    ],
+    "openNow": false
+  },
+  {
+    "id": "demo-06",
+    "name": "Demo American Table 06",
+    "cuisines": [
+      "American"
+    ],
+    "priceTier": 2,
+    "rating": 4.3,
+    "distanceKm": 7,
+    "lat": 0,
+    "lng": 0,
+    "address": "Fictional District A",
+    "dietaryOptions": [],
+    "openNow": true
+  },
+  {
+    "id": "demo-07",
+    "name": "Demo Seafood Table 07",
+    "cuisines": [
+      "Seafood",
+      "Cafe"
+    ],
+    "priceTier": 3,
+    "rating": 3.6,
+    "distanceKm": 8.3,
+    "lat": 0,
+    "lng": 0,
+    "address": "Fictional District B",
+    "dietaryOptions": [
+      "vegetarian",
+      "halal"
+    ],
+    "openNow": true
+  },
+  {
+    "id": "demo-08",
+    "name": "Demo Vegetarian Table 08",
+    "cuisines": [
+      "Vegetarian"
+    ],
+    "priceTier": 4,
+    "rating": 4.3,
+    "distanceKm": 9.6,
+    "lat": 0,
+    "lng": 0,
+    "address": "Fictional District C",
+    "dietaryOptions": [
+      "halal"
+    ],
+    "openNow": true
+  },
+  {
+    "id": "demo-09",
+    "name": "Demo Fast Food Table 09",
+    "cuisines": [
+      "Fast Food"
+    ],
+    "priceTier": 1,
+    "rating": 3.6,
+    "distanceKm": 1.4,
+    "lat": 0,
+    "lng": 0,
+    "address": "Fictional District D",
+    "dietaryOptions": [
+      "vegetarian",
+      "vegan"
+    ],
+    "openNow": false
+  },
+  {
+    "id": "demo-10",
+    "name": "Demo Cafe Table 10",
+    "cuisines": [
+      "Cafe",
+      "Italian"
+    ],
+    "priceTier": 2,
+    "rating": 4.3,
+    "distanceKm": 2.7,
+    "lat": 0,
+    "lng": 0,
+    "address": "Fictional District E",
+    "dietaryOptions": [
+      "vegetarian",
+      "kosher"
+    ],
+    "openNow": true
+  },
+  {
+    "id": "demo-11",
+    "name": "Demo Omani Table 11",
+    "cuisines": [
+      "Omani"
+    ],
+    "priceTier": 3,
+    "rating": 3.6,
+    "distanceKm": 4,
+    "lat": 0,
+    "lng": 0,
+    "address": "Fictional District A",
+    "dietaryOptions": [
+      "halal",
+      "gluten-free"
+    ],
+    "openNow": true
+  },
+  {
+    "id": "demo-12",
+    "name": "Demo Thai Table 12",
+    "cuisines": [
+      "Thai"
+    ],
+    "priceTier": 4,
+    "rating": 4.3,
+    "distanceKm": 5.3,
+    "lat": 0,
+    "lng": 0,
+    "address": "Fictional District B",
+    "dietaryOptions": [],
+    "openNow": true
+  },
+  {
+    "id": "demo-13",
+    "name": "Demo Italian Table 13",
+    "cuisines": [
+      "Italian",
+      "Japanese"
+    ],
+    "priceTier": 1,
+    "rating": 3.6,
+    "distanceKm": 6.6,
+    "lat": 0,
+    "lng": 0,
+    "address": "Fictional District C",
+    "dietaryOptions": [
+      "vegetarian",
+      "halal"
+    ],
+    "openNow": false
+  },
+  {
+    "id": "demo-14",
+    "name": "Demo Indian Table 14",
+    "cuisines": [
+      "Indian"
+    ],
+    "priceTier": 2,
+    "rating": 4.3,
+    "distanceKm": 7.9,
+    "lat": 0,
+    "lng": 0,
+    "address": "Fictional District D",
+    "dietaryOptions": [
+      "halal"
+    ],
+    "openNow": true
+  },
+  {
+    "id": "demo-15",
+    "name": "Demo Lebanese Table 15",
+    "cuisines": [
+      "Lebanese"
+    ],
+    "priceTier": 3,
+    "rating": 3.6,
+    "distanceKm": 9.2,
+    "lat": 0,
+    "lng": 0,
+    "address": "Fictional District E",
+    "dietaryOptions": [
+      "vegetarian",
+      "vegan"
+    ],
+    "openNow": true
+  },
+  {
+    "id": "demo-16",
+    "name": "Demo Japanese Table 16",
+    "cuisines": [
+      "Japanese",
+      "Seafood"
+    ],
+    "priceTier": 4,
+    "rating": 4.3,
+    "distanceKm": 1,
+    "lat": 0,
+    "lng": 0,
+    "address": "Fictional District A",
+    "dietaryOptions": [
+      "vegetarian",
+      "kosher"
+    ],
+    "openNow": true
+  },
+  {
+    "id": "demo-17",
+    "name": "Demo Turkish Table 17",
+    "cuisines": [
+      "Turkish"
+    ],
+    "priceTier": 1,
+    "rating": 3.6,
+    "distanceKm": 2.3,
+    "lat": 0,
+    "lng": 0,
+    "address": "Fictional District B",
+    "dietaryOptions": [
+      "halal",
+      "gluten-free"
+    ],
+    "openNow": false
+  },
+  {
+    "id": "demo-18",
+    "name": "Demo American Table 18",
+    "cuisines": [
+      "American"
+    ],
+    "priceTier": 2,
+    "rating": 4.3,
+    "distanceKm": 3.6,
+    "lat": 0,
+    "lng": 0,
+    "address": "Fictional District C",
+    "dietaryOptions": [],
+    "openNow": true
+  },
+  {
+    "id": "demo-19",
+    "name": "Demo Seafood Table 19",
+    "cuisines": [
+      "Seafood",
+      "Cafe"
+    ],
+    "priceTier": 3,
+    "rating": 3.6,
+    "distanceKm": 4.9,
+    "lat": 0,
+    "lng": 0,
+    "address": "Fictional District D",
+    "dietaryOptions": [
+      "vegetarian",
+      "halal"
+    ],
+    "openNow": true
+  },
+  {
+    "id": "demo-20",
+    "name": "Demo Vegetarian Table 20",
+    "cuisines": [
+      "Vegetarian"
+    ],
+    "priceTier": 4,
+    "rating": 4.3,
+    "distanceKm": 6.2,
+    "lat": 0,
+    "lng": 0,
+    "address": "Fictional District E",
+    "dietaryOptions": [
+      "halal"
+    ],
+    "openNow": true
+  },
+  {
+    "id": "demo-21",
+    "name": "Demo Fast Food Table 21",
+    "cuisines": [
+      "Fast Food"
+    ],
+    "priceTier": 1,
+    "rating": 3.6,
+    "distanceKm": 7.5,
+    "lat": 0,
+    "lng": 0,
+    "address": "Fictional District A",
+    "dietaryOptions": [
+      "vegetarian",
+      "vegan"
+    ],
+    "openNow": false
+  },
+  {
+    "id": "demo-22",
+    "name": "Demo Cafe Table 22",
+    "cuisines": [
+      "Cafe",
+      "Italian"
+    ],
+    "priceTier": 2,
+    "rating": 4.3,
+    "distanceKm": 8.8,
+    "lat": 0,
+    "lng": 0,
+    "address": "Fictional District B",
+    "dietaryOptions": [
+      "vegetarian",
+      "kosher"
+    ],
+    "openNow": true
+  },
+  {
+    "id": "demo-23",
+    "name": "Demo Omani Table 23",
+    "cuisines": [
+      "Omani"
+    ],
+    "priceTier": 3,
+    "rating": 3.6,
+    "distanceKm": 0.6,
+    "lat": 0,
+    "lng": 0,
+    "address": "Fictional District C",
+    "dietaryOptions": [
+      "halal",
+      "gluten-free"
+    ],
+    "openNow": true
+  },
+  {
+    "id": "demo-24",
+    "name": "Demo Thai Table 24",
+    "cuisines": [
+      "Thai"
+    ],
+    "priceTier": 4,
+    "rating": 4.3,
+    "distanceKm": 1.9,
+    "lat": 0,
+    "lng": 0,
+    "address": "Fictional District D",
+    "dietaryOptions": [],
+    "openNow": true
+  },
+  {
+    "id": "demo-25",
+    "name": "Demo Italian Table 25",
+    "cuisines": [
+      "Italian",
+      "Japanese"
+    ],
+    "priceTier": 1,
+    "rating": 3.6,
+    "distanceKm": 3.2,
+    "lat": 0,
+    "lng": 0,
+    "address": "Fictional District E",
+    "dietaryOptions": [
+      "vegetarian",
+      "halal"
+    ],
+    "openNow": false
+  },
+  {
+    "id": "demo-26",
+    "name": "Demo Indian Table 26",
+    "cuisines": [
+      "Indian"
+    ],
+    "priceTier": 2,
+    "rating": 4.3,
+    "distanceKm": 4.5,
+    "lat": 0,
+    "lng": 0,
+    "address": "Fictional District A",
+    "dietaryOptions": [
+      "halal"
+    ],
+    "openNow": true
+  },
+  {
+    "id": "demo-27",
+    "name": "Demo Lebanese Table 27",
+    "cuisines": [
+      "Lebanese"
+    ],
+    "priceTier": 3,
+    "rating": 3.6,
+    "distanceKm": 5.8,
+    "lat": 0,
+    "lng": 0,
+    "address": "Fictional District B",
+    "dietaryOptions": [
+      "vegetarian",
+      "vegan"
+    ],
+    "openNow": true
+  },
+  {
+    "id": "demo-28",
+    "name": "Demo Japanese Table 28",
+    "cuisines": [
+      "Japanese",
+      "Seafood"
+    ],
+    "priceTier": 4,
+    "rating": 4.3,
+    "distanceKm": 7.1,
+    "lat": 0,
+    "lng": 0,
+    "address": "Fictional District C",
+    "dietaryOptions": [
+      "vegetarian",
+      "kosher"
+    ],
+    "openNow": true
+  },
+  {
+    "id": "demo-29",
+    "name": "Demo Turkish Table 29",
+    "cuisines": [
+      "Turkish"
+    ],
+    "priceTier": 1,
+    "rating": 3.6,
+    "distanceKm": 8.4,
+    "lat": 0,
+    "lng": 0,
+    "address": "Fictional District D",
+    "dietaryOptions": [
+      "halal",
+      "gluten-free"
+    ],
+    "openNow": false
+  },
+  {
+    "id": "demo-30",
+    "name": "Demo American Table 30",
+    "cuisines": [
+      "American"
+    ],
+    "priceTier": 2,
+    "rating": 4.3,
+    "distanceKm": 9.7,
+    "lat": 0,
+    "lng": 0,
+    "address": "Fictional District E",
+    "dietaryOptions": [],
+    "openNow": true
+  },
+  {
+    "id": "demo-31",
+    "name": "Demo Seafood Table 31",
+    "cuisines": [
+      "Seafood",
+      "Cafe"
+    ],
+    "priceTier": 3,
+    "rating": 3.6,
+    "distanceKm": 1.5,
+    "lat": 0,
+    "lng": 0,
+    "address": "Fictional District A",
+    "dietaryOptions": [
+      "vegetarian",
+      "halal"
+    ],
+    "openNow": true
+  },
+  {
+    "id": "demo-32",
+    "name": "Demo Vegetarian Table 32",
+    "cuisines": [
+      "Vegetarian"
+    ],
+    "priceTier": 4,
+    "rating": 4.3,
+    "distanceKm": 2.8,
+    "lat": 0,
+    "lng": 0,
+    "address": "Fictional District B",
+    "dietaryOptions": [
+      "halal"
+    ],
+    "openNow": true
+  },
+  {
+    "id": "demo-33",
+    "name": "Demo Fast Food Table 33",
+    "cuisines": [
+      "Fast Food"
+    ],
+    "priceTier": 1,
+    "rating": 3.6,
+    "distanceKm": 4.1,
+    "lat": 0,
+    "lng": 0,
+    "address": "Fictional District C",
+    "dietaryOptions": [
+      "vegetarian",
+      "vegan"
+    ],
+    "openNow": false
+  },
+  {
+    "id": "demo-34",
+    "name": "Demo Cafe Table 34",
+    "cuisines": [
+      "Cafe",
+      "Italian"
+    ],
+    "priceTier": 2,
+    "rating": 4.3,
+    "distanceKm": 5.4,
+    "lat": 0,
+    "lng": 0,
+    "address": "Fictional District D",
+    "dietaryOptions": [
+      "vegetarian",
+      "kosher"
+    ],
+    "openNow": true
+  },
+  {
+    "id": "demo-35",
+    "name": "Demo Omani Table 35",
+    "cuisines": [
+      "Omani"
+    ],
+    "priceTier": 3,
+    "rating": 3.6,
+    "distanceKm": 6.7,
+    "lat": 0,
+    "lng": 0,
+    "address": "Fictional District E",
+    "dietaryOptions": [
+      "halal",
+      "gluten-free"
+    ],
+    "openNow": true
+  },
+  {
+    "id": "demo-36",
+    "name": "Demo Thai Table 36",
+    "cuisines": [
+      "Thai"
+    ],
+    "priceTier": 4,
+    "rating": 4.3,
+    "distanceKm": 8,
+    "lat": 0,
+    "lng": 0,
+    "address": "Fictional District A",
+    "dietaryOptions": [],
+    "openNow": true
+  },
+  {
+    "id": "demo-37",
+    "name": "Demo Italian Table 37",
+    "cuisines": [
+      "Italian",
+      "Japanese"
+    ],
+    "priceTier": 1,
+    "rating": 3.6,
+    "distanceKm": 9.3,
+    "lat": 0,
+    "lng": 0,
+    "address": "Fictional District B",
+    "dietaryOptions": [
+      "vegetarian",
+      "halal"
+    ],
+    "openNow": false
+  },
+  {
+    "id": "demo-38",
+    "name": "Demo Indian Table 38",
+    "cuisines": [
+      "Indian"
+    ],
+    "priceTier": 2,
+    "rating": 4.3,
+    "distanceKm": 1.1,
+    "lat": 0,
+    "lng": 0,
+    "address": "Fictional District C",
+    "dietaryOptions": [
+      "halal"
+    ],
+    "openNow": true
+  },
+  {
+    "id": "demo-39",
+    "name": "Demo Lebanese Table 39",
+    "cuisines": [
+      "Lebanese"
+    ],
+    "priceTier": 3,
+    "rating": 3.6,
+    "distanceKm": 2.4,
+    "lat": 0,
+    "lng": 0,
+    "address": "Fictional District D",
+    "dietaryOptions": [
+      "vegetarian",
+      "vegan"
+    ],
+    "openNow": true
+  },
+  {
+    "id": "demo-40",
+    "name": "Demo Japanese Table 40",
+    "cuisines": [
+      "Japanese",
+      "Seafood"
+    ],
+    "priceTier": 4,
+    "rating": 4.3,
+    "distanceKm": 3.7,
+    "lat": 0,
+    "lng": 0,
+    "address": "Fictional District E",
+    "dietaryOptions": [
+      "vegetarian",
+      "kosher"
+    ],
+    "openNow": true
+  }
+]

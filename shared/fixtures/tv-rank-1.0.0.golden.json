@@ -1,0 +1,106 @@
+{
+  "algorithmVersion": "tv-rank-1.0.0",
+  "cases": [
+    {
+      "id": "minority-protection",
+      "participants": [
+        { "id": "m1", "prefs": { "cuisines": { "American": "like" } } },
+        { "id": "m2", "prefs": { "cuisines": { "American": "like" } } },
+        { "id": "m3", "prefs": { "cuisines": { "American": "like" } } },
+        { "id": "m4", "prefs": { "cuisines": { "American": "like" } } },
+        { "id": "m5", "prefs": { "cuisines": { "American": "like" } } },
+        {
+          "id": "veg",
+          "prefs": {
+            "cuisines": { "Vegetarian": "like" },
+            "dietary": [{ "type": "vegetarian", "strict": true }]
+          }
+        }
+      ],
+      "restaurants": [
+        { "id": "veg", "cuisines": ["Vegetarian"], "dietaryOptions": ["vegetarian"], "rating": 4.4 },
+        { "id": "meat", "cuisines": ["American"], "rating": 4.8 }
+      ],
+      "expected": {
+        "kind": "match",
+        "order": ["veg"],
+        "totals": { "veg": 0.704625, "meat": 0 },
+        "tiebreak": "none",
+        "eliminatedCount": 1
+      }
+    },
+    {
+      "id": "canonical-exact-tie",
+      "participants": [
+        { "id": "p1", "prefs": {} },
+        { "id": "p2", "prefs": {} }
+      ],
+      "restaurants": [{ "id": "A" }, { "id": "B" }],
+      "expected": {
+        "kind": "match",
+        "order": ["A", "B"],
+        "totals": { "A": 0.79825, "B": 0.79825 },
+        "tiebreak": "canonical-id",
+        "eliminatedCount": 0
+      }
+    },
+    {
+      "id": "mixed-preferences",
+      "participants": [
+        {
+          "id": "p1",
+          "prefs": {
+            "cuisines": { "Italian": "like", "Japanese": "dislike" },
+            "budget": 2,
+            "maxDistanceKm": 3
+          }
+        },
+        {
+          "id": "p2",
+          "prefs": {
+            "cuisines": { "Italian": "neutral", "Japanese": "like" },
+            "budget": 4,
+            "maxDistanceKm": 10
+          }
+        }
+      ],
+      "restaurants": [
+        { "id": "italian", "cuisines": ["Italian"], "priceTier": 2, "rating": 4.5, "distanceKm": 1 },
+        { "id": "japanese", "cuisines": ["Japanese"], "priceTier": 3, "rating": 4, "distanceKm": 5 }
+      ],
+      "expected": {
+        "kind": "match",
+        "order": ["italian", "japanese"],
+        "totals": { "italian": 0.853375, "japanese": 0.50875 },
+        "tiebreak": "none",
+        "eliminatedCount": 0
+      }
+    },
+    {
+      "id": "required-no-match",
+      "participants": [
+        { "id": "p1", "prefs": { "dietary": [{ "type": "halal", "strict": true }] } }
+      ],
+      "restaurants": [{ "id": "unknown", "dietaryOptions": [] }],
+      "expected": { "kind": "no-verified-match", "eliminatedCount": 1 }
+    },
+    {
+      "id": "rerun-exclusion",
+      "participants": [
+        { "id": "p1", "prefs": {} },
+        { "id": "p2", "prefs": {} }
+      ],
+      "restaurants": [{ "id": "A" }, { "id": "B" }],
+      "excludedIds": ["A"],
+      "round": 2,
+      "previousWinners": ["A"],
+      "expected": {
+        "kind": "match",
+        "order": ["B"],
+        "totals": { "B": 0.69825, "A": 0 },
+        "tiebreak": "none",
+        "eliminatedCount": 0
+      }
+    }
+  ]
+}

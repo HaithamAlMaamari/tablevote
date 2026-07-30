@@ -1,0 +1,29 @@
+name: Feature request
+description: An idea to make group dinners better
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the pain point at the table.
+      placeholder: When someone joins late, they don't know voting already closed…
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      placeholder: Show a "voting closed" banner in the lobby for late joiners…
+    validations:
+      required: true
+  - type: textarea
+    id: fairness
+    attributes:
+      label: Fairness / privacy impact
+      description: Does this touch scoring, blind-ballot integrity, or stored data? If yes, how do we keep it fair and private?
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
