@@ -1,4 +1,4 @@
-// TableVote — the fairness engine. Used by BOTH server and client (local mode).
+// TableVote deterministic ranking engine and shared scoring constants.
 //
 // 1. Hard filter: strict dietary constraints eliminate restaurants that do not
 //    carry the corresponding catalog tag. Strict requirements are never relaxed;

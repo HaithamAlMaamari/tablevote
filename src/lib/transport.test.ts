@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { MutationSuccessSchema } from '@shared/contracts';
+import { MutationSuccessSchema, SubmitResponseSchema } from '@shared/contracts';
 import { clearSessionStorage, loadIdentity, saveIdentity, sweepExpiredSessionStorage, type Identity } from './identity';
 import { decodeOperationResult } from './transport';
 
@@ -52,6 +52,17 @@ describe('client transport decoding', () => {
       errorCode: 'unknown',
     });
   });
+
+  it.each([{ ok: true }, { ok: true, state: {} }, { ok: true, state: null }])(
+    'rejects a malformed submit response %#',
+    (response) => {
+      expect(decodeOperationResult(response, SubmitResponseSchema)).toEqual({
+        ok: false,
+        error: 'Invalid server response',
+        errorCode: 'unknown',
+      });
+    },
+  );
 });
 
 describe('client session retention', () => {

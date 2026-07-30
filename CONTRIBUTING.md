@@ -11,7 +11,7 @@ TableVote is a portfolio prototype with intentionally narrow product and deploym
 
 ## Setup
 
-Requires Node.js `22.22+` within Node 22, or Node.js `24+`.
+Requires Node.js `22.22+` within Node 22, or Node.js 24.
 
 ```bash
 npm ci

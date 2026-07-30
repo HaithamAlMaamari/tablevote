@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { CUISINES, DIETARY_TYPES, SESSION_ERROR_CODES } from './types';
+import { ALGORITHM_VERSION, CUISINES, DIETARY_TYPES, SESSION_ERROR_CODES } from './types';
 import { INPUT_POLICY } from './policy';
 
 const normalizedNickname = z
@@ -112,23 +112,29 @@ const ClientFinalistSchema = z
     groupFit: z.enum(['strong', 'good', 'compromise']),
   })
   .strict();
-const ClientResultSchema = z.discriminatedUnion('kind', [
+export const ClientResultSchema = z.discriminatedUnion('kind', [
   z
     .object({
       kind: z.literal('match'),
-      algorithmVersion: z.string(),
+      algorithmVersion: z.literal(ALGORITHM_VERSION),
       winner: ClientFinalistSchema,
-      top3: z.array(ClientFinalistSchema),
+      top3: z
+        .tuple([ClientFinalistSchema], ClientFinalistSchema)
+        .refine((finalists) => finalists.length <= 3, { message: 'At most three finalists are supported' }),
       ownWinnerFit: z.number().min(0).max(1).nullable(),
       tiebreak: z.enum(['none', 'least-misery', 'copeland', 'canonical-id']),
       round: z.number().int().positive(),
       previousWinners: z.array(z.string()),
     })
-    .strict(),
+    .strict()
+    .refine((result) => JSON.stringify(result.winner) === JSON.stringify(result.top3[0]), {
+      message: 'winner must match top3[0]',
+      path: ['winner'],
+    }),
   z
     .object({
       kind: z.literal('no-verified-match'),
-      algorithmVersion: z.string(),
+      algorithmVersion: z.literal(ALGORITHM_VERSION),
       round: z.number().int().positive(),
       previousWinners: z.array(z.string()),
     })
@@ -183,6 +189,12 @@ export const JoinSessionResponseSchema = z.object({
   state: SessionSnapshotSchema,
 });
 export const StateResponseSchema = z.object({ state: SessionSnapshotSchema });
+export const SubmitResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    state: SessionSnapshotSchema,
+  })
+  .strict();
 export const InviteResponseSchema = z.object({ invite: InviteSnapshotSchema });
 
 export type CreateSessionRequest = z.infer<typeof CreateSessionRequestSchema>;
@@ -196,4 +208,5 @@ export type ErrorResponse = z.infer<typeof ErrorResponseSchema>;
 export type CreateSessionResponse = z.infer<typeof CreateSessionResponseSchema>;
 export type JoinSessionResponse = z.infer<typeof JoinSessionResponseSchema>;
 export type StateResponse = z.infer<typeof StateResponseSchema>;
+export type SubmitResponse = z.infer<typeof SubmitResponseSchema>;
 export type InviteResponse = z.infer<typeof InviteResponseSchema>;

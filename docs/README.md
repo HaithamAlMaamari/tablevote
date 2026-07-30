@@ -26,7 +26,7 @@ This index separates product evaluation, implementation contracts, decisions, op
 | [Deployment harness](../deployment/README.md) | Loopback HTTPS/WSS proxy validation and troubleshooting                      |
 | [Contributing](../CONTRIBUTING.md)            | Development workflow and change expectations                                 |
 | [Security policy](../SECURITY.md)             | Private vulnerability reporting and supported scope                          |
-| [Changelog](../CHANGELOG.md)                  | Unreleased repository changes                                                |
+| [Changelog](../CHANGELOG.md)                  | Released and unreleased repository changes                                   |
 
 ## Architecture Decisions
 

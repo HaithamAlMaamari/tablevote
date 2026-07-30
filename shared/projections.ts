@@ -1,5 +1,6 @@
 import { SESSION_POLICY } from './policy';
 import type {
+  ClientFinalist,
   ClientRestaurant,
   ClientVoteResult,
   GroupFitBand,
@@ -50,17 +51,18 @@ function projectResult(session: Session, viewer: Participant): ClientVoteResult 
       previousWinners: [...session.result.previousWinners],
     };
   }
+  const projectedTop3 = session.result.top3.slice(0, 3).map((finalist) => ({
+    restaurant: projectRestaurant(finalist.restaurant),
+    groupFit: groupFitBand(finalist.score),
+  }));
+  const first = projectedTop3[0];
+  if (!first) return null;
+  const top3: [ClientFinalist, ...ClientFinalist[]] = [first, ...projectedTop3.slice(1)];
   return {
     kind: 'match',
     algorithmVersion: session.result.algorithmVersion,
-    winner: {
-      restaurant: projectRestaurant(session.result.winner.restaurant),
-      groupFit: groupFitBand(session.result.winner.score),
-    },
-    top3: session.result.top3.map((finalist) => ({
-      restaurant: projectRestaurant(finalist.restaurant),
-      groupFit: groupFitBand(finalist.score),
-    })),
+    winner: top3[0],
+    top3,
     ownWinnerFit:
       session.result.winner.perPerson.find((score) => score.participantId === viewer.id)?.satisfaction ?? null,
     tiebreak: session.result.tiebreak,

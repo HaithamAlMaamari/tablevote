@@ -47,7 +47,7 @@ function isAllowedBackgroundRequest(request: { method: string; url: string }, ex
   const url = new URL(request.url);
   if (url.protocol === 'blob:') return request.method === 'GET' && url.origin === expectedOrigin;
   if (url.origin !== expectedOrigin) return false;
-  if (request.method === 'GET' && (url.pathname === '/' || /^\/assets\/[\w.-]+\.(?:js|css)$/.test(url.pathname)))
+  if (request.method === 'GET' && (url.pathname === '/' || /^\/assets\/[\w.-]+\.(?:js|css|svg)$/.test(url.pathname)))
     return true;
   if (url.pathname === '/socket.io/' && ['GET', 'POST'].includes(request.method)) {
     return [...url.searchParams.keys()].every((key) => ['EIO', 'transport', 'sid', 't'].includes(key));
@@ -231,6 +231,14 @@ test('route focus, disclosure behavior, and public screens are accessible', asyn
   await page.goto('/');
   await expect(page).toHaveTitle('TableVote');
   await expect(page.getByRole('heading', { name: 'Stop debating where to eat.' })).toBeFocused();
+  const logoMark = page.locator('header img[alt=""]').first();
+  await expect(logoMark).toBeVisible();
+  expect(await logoMark.evaluate((image: HTMLImageElement) => [image.naturalWidth, image.naturalHeight])).toEqual([
+    60, 50,
+  ]);
+  expect(await page.locator('link[rel="icon"]').evaluate((link: HTMLLinkElement) => link.href)).toBe(
+    await logoMark.evaluate((image: HTMLImageElement) => image.currentSrc),
+  );
   expect(startupErrors).toEqual([]);
   const howItWorks = page.getByRole('button', { name: 'How does it work?' });
   await howItWorks.focus();

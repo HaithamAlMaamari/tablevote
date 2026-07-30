@@ -7,6 +7,7 @@ import {
   JoinSessionResponseSchema,
   MutationSuccessSchema,
   StateResponseSchema,
+  SubmitResponseSchema,
 } from '../shared/contracts';
 import type { Prefs } from '../shared/types';
 import { buildApp } from './app';
@@ -101,7 +102,7 @@ describe('REST and Socket.IO command parity', () => {
         'submit',
         submitInput,
       );
-      expect(MutationSuccessSchema.safeParse(submitted).success).toBe(true);
+      expect(SubmitResponseSchema.safeParse(submitted).success).toBe(true);
       expect(StateResponseSchema.safeParse({ state: submitted.state }).success).toBe(true);
     }
 

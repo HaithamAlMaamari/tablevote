@@ -27,6 +27,8 @@ async function closeSocket(socket: Socket): Promise<void> {
     socket.once('disconnect', () => resolve());
     socket.close();
   });
+  // Socket.IO disconnect precedes the manager's raw Engine.IO close.
+  await new Promise((resolve) => setTimeout(resolve, 20));
 }
 
 describe('Socket.IO admission boundaries', () => {

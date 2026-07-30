@@ -6,6 +6,7 @@ import {
   JoinSessionResponseSchema,
   MutationSuccessSchema,
   StateResponseSchema,
+  SubmitResponseSchema,
   SessionSnapshotSchema,
 } from '@shared/contracts';
 import type {
@@ -14,6 +15,7 @@ import type {
   InviteResponse,
   JoinSessionRequest,
   JoinSessionResponse,
+  SubmitResponse,
 } from '@shared/contracts';
 import { TRANSPORT_POLICY } from '@shared/policy';
 import type { Prefs, SessionErrorCode, SessionSnapshot } from '@shared/types';
@@ -30,11 +32,7 @@ export interface Transport {
   join(input: JoinInput): Promise<OperationResult<JoinSessionResponse>>;
   attach(sessionId: string, token: string): Promise<OperationResult<{ state: SessionSnapshot }>>;
   fetch(sessionId: string, token: string): Promise<OperationResult<{ state: SessionSnapshot }>>;
-  submit(
-    sessionId: string,
-    token: string,
-    prefs: Prefs,
-  ): Promise<OperationResult<{ ok: true; state?: SessionSnapshot }>>;
+  submit(sessionId: string, token: string, prefs: Prefs): Promise<OperationResult<SubmitResponse>>;
   leave(sessionId: string, token: string): Promise<OperationResult<{ ok: true }>>;
   removeParticipant(
     sessionId: string,
@@ -153,12 +151,10 @@ class SocketTransport implements Transport {
       { sessionId, token, prefs },
       `/api/sessions/${encodeURIComponent(sessionId)}/submit`,
     );
-    const result = this.decodeMutation(value);
+    const result = this.decode(value, SubmitResponseSchema);
     if (!result.ok) return result;
-    const stateResult = StateResponseSchema.safeParse(value);
-    const state = stateResult.success ? stateResult.data.state : undefined;
-    if (state) this.stateCallbacks.forEach((callback) => callback(state));
-    return { ok: true as const, value: { ...result.value, ...(state ? { state } : {}) } };
+    this.stateCallbacks.forEach((callback) => callback(result.value.state));
+    return result;
   }
 
   async leave(sessionId: string, token: string) {
