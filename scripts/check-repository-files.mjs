@@ -1,8 +1,6 @@
 import { execFileSync } from 'node:child_process';
 
-const trackedFiles = execFileSync('git', ['ls-files', '-z'], { encoding: 'utf8' })
-  .split('\0')
-  .filter(Boolean);
+const trackedFiles = execFileSync('git', ['ls-files', '-z'], { encoding: 'utf8' }).split('\0').filter(Boolean);
 
 const forbiddenDirectories = [
   '.opencode/',

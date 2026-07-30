@@ -2,10 +2,13 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { io as ioc, type Socket } from 'socket.io-client';
 import type { AddressInfo } from 'node:net';
-import { buildApp } from './index';
+import { buildApp } from './app';
 
 const prefs = {
-  cuisines: { Italian: 'like' as const }, budget: 2 as const, maxDistanceKm: 5, dietary: [],
+  cuisines: { Italian: 'like' as const },
+  budget: 2 as const,
+  maxDistanceKm: 5,
+  dietary: [],
 };
 
 describe('operation-complete authorization matrix', () => {
@@ -22,15 +25,28 @@ describe('operation-complete authorization matrix', () => {
     socket = ioc(`http://127.0.0.1:${port}`, { transports: ['websocket'] });
     await new Promise<void>((resolve) => socket.on('connect', resolve));
 
-    const create = async (nickname: string) => (await request(app).post('/api/sessions').send({
-      areaLabel: 'Qurum', center: { lat: 23.588, lng: 58.3829 }, radiusKm: 10,
-      nickname, color: 0, allowReruns: true,
-    })).body as Record<string, string>;
+    const create = async (nickname: string) =>
+      (
+        await request(app)
+          .post('/api/sessions')
+          .send({
+            areaLabel: 'Qurum',
+            center: { lat: 23.588, lng: 58.3829 },
+            radiusKm: 10,
+            nickname,
+            color: 0,
+            allowReruns: true,
+          })
+      ).body as Record<string, string>;
     sessionA = await create('Host A');
     sessionB = await create('Host B');
-    guestA = (await request(app).post('/api/sessions/join').send({
-      code: sessionA.code, nickname: 'Guest A', color: 1,
-    })).body as Record<string, string>;
+    guestA = (
+      await request(app).post('/api/sessions/join').send({
+        code: sessionA.code,
+        nickname: 'Guest A',
+        color: 1,
+      })
+    ).body as Record<string, string>;
   });
 
   afterAll(async () => {
@@ -46,13 +62,15 @@ describe('operation-complete authorization matrix', () => {
 
     const participantOperations = [
       request(app).post(`/api/sessions/${sessionA.sessionId}/submit`).send({
-        token: sessionB.participantToken, prefs,
+        token: sessionB.participantToken,
+        prefs,
       }),
       request(app).post(`/api/sessions/${sessionA.sessionId}/leave`).send({
         token: sessionB.participantToken,
       }),
       request(app).post(`/api/sessions/${sessionA.sessionId}/submit`).send({
-        token: sessionA.hostToken, prefs,
+        token: sessionA.hostToken,
+        prefs,
       }),
       request(app).post(`/api/sessions/${sessionA.sessionId}/leave`).send({
         token: sessionA.hostToken,
@@ -77,18 +95,26 @@ describe('operation-complete authorization matrix', () => {
     expect(unchanged.status).toBe(200);
     expect(unchanged.body.state.phase).toBe('collecting');
     expect(unchanged.body.state.participants).toHaveLength(2);
-    expect(unchanged.body.state.participants.map((participant: { id: string }) => participant.id)).toContain(guestA.participantId);
+    expect(unchanged.body.state.participants.map((participant: { id: string }) => participant.id)).toContain(
+      guestA.participantId,
+    );
   });
 
   it('rejects every Socket.IO operation with cross-session or wrong-class capabilities', async () => {
-    const emit = <T,>(event: string, data: unknown) =>
+    const emit = <T>(event: string, data: unknown) =>
       new Promise<T>((resolve) => socket.emit(event, data, (response: T) => resolve(response)));
-    expect(await emit('attach', {
-      sessionId: sessionA.sessionId, token: sessionA.participantToken,
-    })).toHaveProperty('state');
-    expect(await emit('attach', {
-      sessionId: sessionA.sessionId, token: sessionB.participantToken,
-    })).toEqual({ error: 'Not found', errorCode: 'not-found' });
+    expect(
+      await emit('attach', {
+        sessionId: sessionA.sessionId,
+        token: sessionA.participantToken,
+      }),
+    ).toHaveProperty('state');
+    expect(
+      await emit('attach', {
+        sessionId: sessionA.sessionId,
+        token: sessionB.participantToken,
+      }),
+    ).toEqual({ error: 'Not found', errorCode: 'not-found' });
 
     const participantCases = [
       ['submit', { token: sessionB.participantToken, prefs }, 'Invalid token'],
@@ -107,8 +133,14 @@ describe('operation-complete authorization matrix', () => {
       ['end', {}],
     ] as const;
     for (const [event, data] of hostCases) {
-      expect(await emit(event, { ...data, hostToken: sessionB.hostToken })).toEqual({ error: 'Forbidden', errorCode: 'access-required' });
-      expect(await emit(event, { ...data, hostToken: sessionA.participantToken })).toEqual({ error: 'Forbidden', errorCode: 'access-required' });
+      expect(await emit(event, { ...data, hostToken: sessionB.hostToken })).toEqual({
+        error: 'Forbidden',
+        errorCode: 'access-required',
+      });
+      expect(await emit(event, { ...data, hostToken: sessionA.participantToken })).toEqual({
+        error: 'Forbidden',
+        errorCode: 'access-required',
+      });
     }
 
     const unchanged = await request(app)

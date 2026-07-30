@@ -1,0 +1,10 @@
+coverage/
+dist/
+dist-server/
+node_modules/
+playwright-report/
+results.sarif
+test-results/
+docs/assets/
+shared/restaurants.json
+shared/fixtures/*.json

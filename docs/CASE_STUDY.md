@@ -1,56 +1,59 @@
 # Technical Case Study
 
-## Problem
+## Question
 
-Group restaurant decisions mix incompatible preferences, privacy concerns, and social pressure. A visible poll can encourage strategic voting and can expose sensitive dietary requirements.
+Group restaurant decisions combine incompatible preferences, private dietary information, and social pressure. TableVote tests a narrow product question: can an accountless group submit private ballots and receive one reproducible recommendation without silently relaxing a required constraint?
 
-TableVote explores a narrower question: can an accountless group submit private ballots and receive one deterministic, inspectable recommendation without silently relaxing a hard requirement?
+The project uses fictional records and is evaluated as an engineering prototype. It does not validate the ranking weights with users, verify real restaurant facts, or claim a production security posture.
 
-## Product Principles
+## Product Rules
 
-- Tell the truth when no candidate satisfies the group.
-- Keep individual ballots private, including from the host.
-- Make every tie deterministic and reproducible.
-- Prefer explicit unknown states over inferred restaurant facts.
-- Keep the main flow usable with keyboard, reduced motion, and narrow screens.
+- Return no verified match when every fixture fails a required dietary constraint.
+- Keep each raw ballot private from other participants, including the host.
+- Produce the same ranking and tie outcome for the same normalized inputs.
+- Represent unknown or contradicted evidence explicitly rather than infer support.
+- Preserve keyboard, narrow-screen, reduced-motion, and forced-color usability.
 
-## Key Decisions
+## Engineering Approach
 
-### Fail closed before ranking
+### One runtime contract
 
-Required dietary states are eligibility constraints, not soft score bonuses. A candidate with unknown, stale, or contradicted evidence is removed. If every candidate is removed, the system returns no match.
+Requests and responses are Zod schemas in `shared/contracts.ts`. Server adapters parse untrusted inputs with those schemas, while the client parses responses before state enters the UI. Inferred TypeScript types reduce drift but do not replace runtime validation.
 
-The public repository uses only simulated evidence attached to fictional records. The model demonstrates the behavior but makes no real restaurant claim.
+### One operation path
 
-### Balance average fit and minority protection
+Earlier transport-specific behavior was consolidated into `OperationService`. REST and Socket.IO now translate into the same commands, typed outcomes, and side-effect descriptions. The service depends on an injectable `SessionStore`, not on either network framework, so authorization and transitions can be tested without opening a port.
 
-The group score combines mean utility with the least-satisfied participant and normalized rank points. This allows a broadly acceptable candidate to outrank one that most people love but one person strongly dislikes.
+### Scoped projections
 
-### Keep retries idempotent
+The store holds full ballots and scoring details. Projection functions construct either minimal public invite data or a participant-specific snapshot. Privacy therefore depends on server response construction, not on hiding fields in React.
 
-Realtime acknowledgements can be lost. Assigning every mutation a request ID lets the same operation safely cross from Socket.IO to REST without duplicating side effects.
+### Deterministic ranking
 
-### Project only what each viewer needs
+Required simulated evidence filters first. Remaining candidates receive per-ballot utility, then a weighted aggregate of mean utility, minimum utility, and normalized Borda points. Fixed precision and a complete tie ladder make results reproducible. These choices are explicit policy, not a mathematically neutral definition of fairness.
 
-The server computes detailed internal rows but sends each participant only group-safe bands and that participant's own ballot and fit. Privacy is enforced by response construction rather than UI convention.
+### Cross-transport retries
 
-## Verification Strategy
+The client prefers acknowledged socket mutations. After a socket timeout it retries through REST with the same UUID. The operation service retains bounded successful replay records so that fallback does not intentionally duplicate side effects within the replay window.
 
-- Golden ranking scenarios prove deterministic totals and ordering.
-- API and Socket.IO matrices test every capability against wrong sessions and wrong operation classes.
-- Quota saturation tests prove counters and retained references stay bounded.
-- Browser tests use separate contexts to exercise actual privacy boundaries.
-- Chromium, Firefox, and WebKit run responsive, keyboard, motion, forced-color, text-spacing, and axe checks.
-- Repository and documentation guards prevent common publication mistakes.
+## Verification
 
-## What I Would Change for Production
+The default verification pipeline checks formatting, lint, documentation links, repository hygiene, deterministic catalog generation, tooling tests, application tests, dependency policy, and both client/server builds. The full pipeline adds built browser flows and a production smoke test.
 
-- Replace fixtures with licensed provider adapters and field-level provenance.
-- Store sessions and replay records transactionally in PostgreSQL.
-- Hash persisted capabilities and add backup/restore exercises.
-- Add staging, redacted observability, incident ownership, and an HTTPS-enforcing edge.
-- Validate the flow with real groups before changing ranking weights or expanding scope.
+Tests focus on ranking fixtures, schema boundaries, operation outcomes, capability misuse, projections, lifecycle behavior, quotas, transport fallback, and browser accessibility/product flows. Counts are intentionally omitted because the suite changes with the implementation.
 
-## What This Project Demonstrates
+## Trade-offs
 
-The project is intentionally more than a UI mock: it demonstrates shared-domain TypeScript, deterministic algorithms, realtime lifecycle design, capability-based authorization, privacy projections, failure modeling, accessibility automation, deployment hardening, and evidence-driven technical trade-offs.
+| Choice                                | Benefit                             | Cost                                                       |
+| ------------------------------------- | ----------------------------------- | ---------------------------------------------------------- |
+| Process-local state                   | Simple atomic transitions and setup | No restart recovery, horizontal scaling, or durable replay |
+| Bearer capabilities                   | Accountless flow                    | Theft grants access; no identity recovery                  |
+| Fictional generated catalog           | Reproducible and API-key free       | No real venue or dietary validity                          |
+| Two transports, one operation service | Realtime UX with fallback           | More adapter and lifecycle surface than REST alone         |
+| Fixed ranking policy                  | Reproducible outcomes               | Weights still require product validation                   |
+
+## Production Delta
+
+A production implementation would need licensed provider adapters with field-level provenance, transactional durable state, hashed stored capabilities, multi-instance presence and replay coordination, deployment-owned TLS and proxy configuration, redacted observability, backup/restore exercises, incident response, and independent security review. Ranking weights and explanations should be evaluated with real consenting groups before being treated as product policy.
+
+See the [architecture guide](ARCHITECTURE.md), [operation contract](OPERATIONS.md), [ADRs](README.md#architecture-decisions), and [threat model](security/THREAT_MODEL.md).

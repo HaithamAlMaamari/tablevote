@@ -3,127 +3,131 @@
 [![CI](https://github.com/HaithamAlMaamari/tablevote/actions/workflows/ci.yml/badge.svg)](https://github.com/HaithamAlMaamari/tablevote/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-6B7A3F.svg)](LICENSE)
 
-**Stop debating where to eat.** TableVote is an accountless group-voting prototype with private ballots, realtime sessions, and a deterministic fairness algorithm.
+TableVote is an accountless group-dining prototype that turns private ballots into one **deterministic consensus ranking**. It explores reproducible ranking, capability-scoped access, realtime coordination, and explicit no-match outcomes; it does not claim objective fairness.
 
-> **Portfolio demo:** Every bundled restaurant is fictional. Location, radius, rating, distance, availability, and dietary tags are simulated fixtures. TableVote is not live restaurant search, dietary verification, or a production service. Sessions are held in one server process and are lost on restart.
+> **Prototype boundary:** all restaurants and venue facts are generated fixtures. Sessions exist only in one Node.js process, disappear on restart, and are not suitable for real dietary or safety decisions. No public deployment is maintained.
 
-## Demo Walkthrough
-
-![TableVote landing page](docs/assets/landing.png)
-
-1. Run the application and create a table in one browser profile.
-2. Open the invite in an Incognito window or a different browser profile.
-3. Submit a private ballot from both participants.
-4. Reveal the deterministic result from the host window.
-5. Try a re-run or mark every dietary item Required to exercise the no-match path.
-
-Use separate browser contexts, not ordinary tabs: participant identity is stored per browser profile.
-
-| Private ballot | Group result |
-|---|---|
-| ![Private preference ballot](docs/assets/ballot.png) | ![Fictional group result](docs/assets/result.png) |
-
-## Engineering Highlights
-
-- **Deterministic ranking:** one shared TypeScript implementation, fixed precision, canonical tie-breaking, and versioned golden fixtures.
-- **Privacy-scoped projections:** participants receive their own ballot and fit, never another participant's raw choices or score.
-- **Reliable mutations:** UUID idempotency records make Socket.IO operations safe to retry through REST without repeating side effects.
-- **Realtime lifecycle:** reconnect, presence, removal, expiry, ending, and terminal cleanup are covered across API, socket, and browser tests.
-- **Fail-closed constraints:** simulated Required dietary evidence filters before ranking; no candidate produces an explicit no-match result.
-- **Accessible interaction:** semantic controls, route focus, keyboard dialogs, reduced motion, forced colors, text spacing, and axe checks run in Chromium, Firefox, and WebKit.
-- **Deliberate prototype boundary:** in-memory state and fictional data keep the sample focused on product logic rather than pretending to be production infrastructure.
-
-Read the [technical case study](docs/CASE_STUDY.md), [architecture notes](docs/ARCHITECTURE.md), and [threat model](docs/security/THREAT_MODEL.md) for the reasoning behind those choices.
+[Quickstart](#quickstart) · [Walkthrough media](#walkthrough-media) · [Engineering tour](#engineering-tour) · [Documentation](docs/README.md) · [Limitations](#limitations)
 
 ## Quickstart
 
-Prerequisites: Node.js `20.19+` or `22.12+`, npm, and a modern browser.
+Requires Node.js `22.22+` within Node 22, or Node.js `24+`, plus npm and a modern browser.
 
 ```bash
 npm ci
 npm run dev
 ```
 
-The Vite client runs at `http://localhost:3000`; the Express and Socket.IO server runs at `http://localhost:3001`. Vite proxies API and socket traffic during development.
+Open `http://localhost:3000`. The Vite client proxies REST and Socket.IO traffic to the server at `http://localhost:3001`.
 
-| Command | Purpose |
-|---|---|
-| `npm run dev` | Start the local client and server watchers |
-| `npm run dev:lan` | Bind Vite to the LAN for trusted local-device testing |
-| `npm run generate:catalog` | Recreate the deterministic fictional catalog |
-| `npm run check:catalog` | Verify the committed fictional catalog matches its generator |
-| `npm test` | Run 61 unit and integration tests |
-| `npm run build` | Type-check and build client/server artifacts |
-| `npm run test:browser` | Run 33 Chromium, Firefox, and WebKit executions |
-| `npm run lint` | Run ESLint |
-| `npm run check:docs` | Validate local Markdown links |
-| `npm run check:repo` | Reject tracked secrets, local tooling, builds, logs, and reports |
-| `npm run audit:prod` | Enforce the documented production dependency policy |
-| `npm run smoke:prod` | Smoke-test the built single-port server |
+For a two-person evaluation, create a table in one browser profile and join its invite from an Incognito window or another profile. Ordinary tabs share participant identity through origin-local storage.
 
-## Current Architecture
+## Walkthrough Media
+
+![TableVote evaluator walkthrough: landing, session creation, invitation, private ballot, ready state, reveal, and result](docs/assets/walkthrough.gif)
+
+The walkthrough is captured from separate host and guest browser contexts against the built local app. Static references remain available for the [landing screen](docs/assets/landing.png), [private ballot](docs/assets/ballot.png), and [final result](docs/assets/result.png).
+
+To regenerate it, install FFmpeg 8 and make `ffmpeg` available on `PATH`, then run a fresh production build followed by the package-independent capture entry point:
+
+```bash
+npm run build
+node scripts/capture-screenshots.mjs
+```
+
+The script drives Playwright deterministically and removes its temporary frames after writing the checked-in assets. [`social-preview.png`](docs/assets/social-preview.png) is also available as a 1280x640 repository preview asset; this repository does not claim that GitHub is configured to use it.
+
+## Verification
+
+```bash
+npm run verify
+npm run verify:full
+```
+
+`verify` runs formatting, lint, documentation and repository guards, catalog reproducibility, tooling and application tests, production dependency policy, and builds. `verify:full` adds the built cross-browser suite and production smoke test. Install browser binaries once with `npx playwright install chromium firefox webkit`.
+
+Useful focused commands:
+
+| Command                 | Purpose                                               |
+| ----------------------- | ----------------------------------------------------- |
+| `npm test`              | Unit and integration tests                            |
+| `npm run test:coverage` | Enforce core server/domain coverage thresholds        |
+| `npm run test:browser`  | Build and run browser flows                           |
+| `npm run check:docs`    | Validate local Markdown links                         |
+| `npm run check:catalog` | Check deterministic fixture generation                |
+| `npm run audit:prod`    | Enforce the production dependency policy              |
+| `npm run audit:all`     | Audit runtime, build, and test dependency inventories |
+| `npm run smoke:prod`    | Build and smoke-test the single-port server           |
+
+## Engineering Tour
+
+Start with these boundaries:
+
+1. [`shared/contracts.ts`](shared/contracts.ts) defines runtime Zod request and response contracts used by the server and client.
+2. [`shared/failures.ts`](shared/failures.ts) defines typed domain failures independently of HTTP and Socket.IO.
+3. [`server/operations.ts`](server/operations.ts) executes transport-neutral session operations and emits realtime effects.
+4. [`server/rest.ts`](server/rest.ts) and [`server/sockets.ts`](server/sockets.ts) are thin validation and transport adapters.
+5. [`server/store.ts`](server/store.ts) owns process-local state and accepts injectable state, clock, scheduler, catalog, and token factory dependencies.
+6. [`shared/projections.ts`](shared/projections.ts) constructs participant-scoped views; [`shared/scoring.ts`](shared/scoring.ts) computes the deterministic ranking.
+7. [`src/lib/transport.ts`](src/lib/transport.ts) validates server responses and retries timed-out socket mutations over REST with the same request ID.
+
+The [operation and transport contract](docs/OPERATIONS.md) describes how those pieces compose. The [case study](docs/CASE_STUDY.md) explains the engineering choices without treating prototype controls as production guarantees.
+
+## Architecture
 
 ```mermaid
 flowchart LR
-  Browser[React HashRouter client] --> Transport[Socket-first transport]
-  Transport -->|live operations| Socket[Socket.IO]
-  Transport -->|timeout/disconnect fallback| REST[Express REST]
-  Socket --> Store[In-memory session store]
-  REST --> Store
-  Store --> Ranking[Shared deterministic ranking]
-  Ranking --> Fixtures[Fictional generated catalog]
+  Client[React client] --> Contracts[Shared Zod contracts]
+  Client --> Transport[Socket-first client transport]
+  Transport --> Socket[Socket.IO adapter]
+  Transport --> REST[REST adapter]
+  Socket --> Ops[Operation service]
+  REST --> Ops
+  Ops --> Store[Injectable in-memory store]
+  Store --> Rank[Deterministic ranking]
   Store --> Projection[Participant-scoped projections]
-  Projection --> Browser
+  Projection --> Client
 ```
 
-The server is a modular monolith. Realtime and REST operations share validation, authorization, quotas, replay records, state transitions, and projection code. See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for details.
+The server is a modular monolith. Mutation semantics, authorization, replay handling, state transitions, and typed failures live below both adapters. Public invite reads and bearer-authorized state reads are REST projections; socket attachment establishes realtime presence. See the [architecture guide](docs/ARCHITECTURE.md) and [ADRs](docs/README.md#architecture-decisions).
 
-## Ranking Summary
+## Ranking Contract
 
-1. Required dietary fixture states filter candidates before scoring; they are never relaxed.
-2. Each submitted ballot produces cuisine, price, distance, and rating utility.
-3. Group score combines average fit, least-satisfied fit, and normalized rank points.
-4. Near ties use least misery, Copeland pairwise wins, then canonical fixture ID.
-5. Results record algorithm version `tv-rank-1.0.0` and expose only privacy-safe fit bands.
+1. Required dietary fixture evidence filters candidates before scoring and is never relaxed.
+2. Submitted ballots produce cuisine, price, distance, and rating utility values.
+3. The group score combines mean utility, minimum utility, and normalized Borda points.
+4. Near ties use least misery, Copeland pairwise comparison, then canonical fixture ID.
+5. Scores use fixed precision and results identify the algorithm version.
 
-The implementation and tests live in [`shared/scoring.ts`](shared/scoring.ts), [`shared/scoring.test.ts`](shared/scoring.test.ts), and [`shared/fixtures`](shared/fixtures).
+This is deterministic consensus ranking over simulated inputs, not a proof that the weights are socially fair. See [ADR 0003](docs/adr/0003-deterministic-ranking.md).
 
-## Important Limitations
+## Limitations
 
-- The catalog is generated fictional data; see [DATA.md](DATA.md).
-- The area and radius inputs demonstrate a planned flow but do not search or filter fixtures.
-- Ratings, distances, availability, prices, and dietary states are simulated.
-- There are no map directions for fictional records.
-- Sessions, capabilities, replay records, and presence live in one Node.js process.
-- Restarting the server loses active sessions.
-- Development-only local mode stores the whole simulated session in shared browser storage and provides no confidentiality boundary between tabs.
-- The security documentation is a maintainer self-assessment, not an independent audit.
-- No public deployment is maintained.
+- The generated catalog does not represent real venues; see [DATA.md](DATA.md).
+- Area and radius are captured for the product flow but do not query or geographically filter the fixtures.
+- Ratings, distances, availability, prices, coordinates, and dietary evidence are simulated.
+- Sessions, capabilities, replay entries, presence, quotas, and terminal references are process-local.
+- Restarting the server loses all active sessions; the architecture does not support multiple instances.
+- Bearer capabilities are kept in browser `localStorage` and are exposed to same-origin script or device compromise.
+- Passive expiry is scheduled for the exact 24-hour deadline, with access-time checks as a backstop.
+- Security documents are maintainer self-assessments, not an independent audit or deployment certification.
 
-## Testing
+## Troubleshooting
 
-CI runs on Node.js 20 and 22 and includes secret scanning, repository hygiene, documentation links, lint, 61 Vitest tests, dependency policy, client/server builds, a production smoke test, and 33 Playwright executions across Chromium, Firefox, and WebKit.
+| Symptom                                            | Check                                                                                                         |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Unsupported engine during install                  | Use Node.js `22.22+` on the Node 22 line, or `24+`; Node 23 is outside the declared range.                    |
+| Client reports the server unavailable              | Confirm both `web` and `api` processes from `npm run dev` are still running and ports `3000`/`3001` are free. |
+| A second participant replaces the first            | Use Incognito or another browser profile, not another tab in the same profile.                                |
+| Browser tests cannot launch                        | Run `npx playwright install chromium firefox webkit`.                                                         |
+| Built production server rejects startup or traffic | Review the exact-origin and trusted-proxy requirements in [`deployment/README.md`](deployment/README.md).     |
+| A session vanished after restart                   | This is expected for the in-memory prototype; there is no recovery mechanism.                                 |
 
-Browser coverage includes separate host/guest contexts, privacy payload scanning, responsive widths, text spacing, forced colors, normal/reduced motion, keyboard focus, retry and terminal states, reconnect, removal, end, expiry, strict no-match, and axe WCAG A/AA scans.
+For usage or contributor questions, use the structured [question/support form](https://github.com/HaithamAlMaamari/tablevote/issues/new?template=question.yml). Redact invite codes, capabilities, ballots, nicknames, dietary requirements, and exact locations.
 
-## Project Map
+## Documentation
 
-```text
-shared/                  shared contracts, projections, ranking, and fixtures
-server/                  Express, Socket.IO, quotas, lifecycle, and in-memory store
-src/pages/               React product flows
-src/lib/                 transport, identity storage, and session synchronization
-tests/browser/           cross-browser product and accessibility flows
-deployment/              local reverse-proxy validation harness
-docs/                    architecture, case study, roadmap, and threat model
-scripts/                 repository, documentation, audit, and fixture tooling
-```
-
-## Contributing and Security
-
-Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), and the [Code of Conduct](CODE_OF_CONDUCT.md) before opening a report or pull request.
-
-Never include live invite codes, capabilities, ballots, dietary requirements, exact locations, or other private session data in a public issue.
+The [documentation index](docs/README.md) provides an evaluator reading path, architecture decisions, operations reference, security model, roadmap, and deployment guide. Contributions follow [CONTRIBUTING.md](CONTRIBUTING.md), community participation follows [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md), and vulnerabilities follow [SECURITY.md](SECURITY.md).
 
 ## License
 

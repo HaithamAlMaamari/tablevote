@@ -14,19 +14,16 @@
 // 3. Aggregate: 0.70*mean + 0.20*min + 0.10*normalized Borda points.
 // 4. Tie ladder (delta < 0.01): least-misery -> Copeland -> canonical ID.
 
-import type {
-  Cuisine, DietaryType, Finalist, Participant, Prefs,
-  Restaurant, Tiebreak, VoteResult,
-} from './types';
+import type { Cuisine, DietaryType, Finalist, Participant, Prefs, Restaurant, Tiebreak, VoteResult } from './types';
 import { ALGORITHM_VERSION, CUISINE_EMOJI } from './types';
 
 export const W_CUISINE = 0.35;
 export const W_PRICE = 0.25;
-export const W_DISTANCE = 0.20;
-export const W_RATING = 0.20;
-export const W_GROUP_MEAN = 0.70;
-export const W_GROUP_MIN = 0.20;
-export const W_GROUP_BORDA = 0.10;
+export const W_DISTANCE = 0.2;
+export const W_RATING = 0.2;
+export const W_GROUP_MEAN = 0.7;
+export const W_GROUP_MIN = 0.2;
+export const W_GROUP_BORDA = 0.1;
 export const TIE_EPSILON = 0.01;
 export const SCORE_PRECISION = 1_000_000;
 
@@ -46,9 +43,7 @@ export function isFlexible(prefs: Prefs): boolean {
 
 /** Effective hard constraints for a participant. Strict requirements are never relaxed. */
 function hardConstraints(prefs: Prefs): DietaryType[] {
-  return prefs.dietary
-    .filter((d) => d.strict)
-    .map((d) => d.type);
+  return prefs.dietary.filter((d) => d.strict).map((d) => d.type);
 }
 
 export function supportsRequiredDietaryEvidence(r: Restaurant, type: DietaryType): boolean {
@@ -95,15 +90,16 @@ export function ratingScore(r: Restaurant): number {
 export function utility(prefs: Prefs, r: Restaurant): number {
   return roundScore(
     W_CUISINE * cuisineScore(prefs, r) +
-    W_PRICE * priceScore(prefs, r) +
-    W_DISTANCE * distanceScore(prefs, r) +
-    W_RATING * ratingScore(r)
+      W_PRICE * priceScore(prefs, r) +
+      W_DISTANCE * distanceScore(prefs, r) +
+      W_RATING * ratingScore(r),
   );
 }
 
 /** Copeland pairwise wins of a over b: members strictly preferring a vs b. */
 function copelandWin(utilsA: number[], utilsB: number[]): number {
-  let a = 0, b = 0;
+  let a = 0,
+    b = 0;
   for (let i = 0; i < utilsA.length; i++) {
     if (utilsA[i] > utilsB[i]) a++;
     else if (utilsB[i] > utilsA[i]) b++;
@@ -138,16 +134,15 @@ export function computeResult(
 
   // --- 2. Per-member utilities ---
   const flexFlags = voted.map((p) => isFlexible(p.prefs as Prefs));
-  const utilsByCandidate = candidates.map((r) =>
-    voted.map((p) => utility(p.prefs as Prefs, r)),
-  );
+  const utilsByCandidate = candidates.map((r) => voted.map((p) => utility(p.prefs as Prefs, r)));
   const countedIdx = voted.map((_, i) => i).filter((i) => !flexFlags[i]);
 
-  const meanOf = (u: number[]) => roundScore(
-    countedIdx.length === 0
-      ? u.reduce((a, b) => a + b, 0) / Math.max(1, u.length)
-      : countedIdx.reduce((a, i) => a + u[i], 0) / countedIdx.length,
-  );
+  const meanOf = (u: number[]) =>
+    roundScore(
+      countedIdx.length === 0
+        ? u.reduce((a, b) => a + b, 0) / Math.max(1, u.length)
+        : countedIdx.reduce((a, i) => a + u[i], 0) / countedIdx.length,
+    );
   const minOf = (u: number[]) => (u.length === 0 ? 1 : Math.min(...u));
 
   // --- 3. Borda points (per member, over candidates), normalized ---
@@ -162,7 +157,7 @@ export function computeResult(
     while (rank < n) {
       let end = rank;
       while (end + 1 < n && utilsByCandidate[order[end + 1]][m] === utilsByCandidate[order[rank]][m]) end++;
-      const avgPoints = ((n - 1 - rank) + (n - 1 - end)) / 2;
+      const avgPoints = (n - 1 - rank + (n - 1 - end)) / 2;
       for (let k = rank; k <= end; k++) bordaRaw[order[k]] += avgPoints;
       rank = end + 1;
     }
@@ -189,13 +184,12 @@ export function computeResult(
       tiebreak = 'least-misery';
     } else {
       // (b) Copeland pairwise wins among tied
-      const copeland = tied.map((row) => ({
-        row,
-        score: tied.reduce(
-          (wins, other) => other === row ? wins : wins + copelandWin(row.u, other.u),
-          0,
-        ),
-      })).sort((a, b) => b.score - a.score || a.row.r.id.localeCompare(b.row.r.id));
+      const copeland = tied
+        .map((row) => ({
+          row,
+          score: tied.reduce((wins, other) => (other === row ? wins : wins + copelandWin(row.u, other.u)), 0),
+        }))
+        .sort((a, b) => b.score - a.score || a.row.r.id.localeCompare(b.row.r.id));
       if (copeland[0].score > copeland[1].score) {
         tiebreak = 'copeland';
         tied.splice(0, tied.length, ...copeland.map((entry) => entry.row));
@@ -233,34 +227,45 @@ export function computeResult(
   // --- 5. Explanation bullets ---
   const explanation = buildExplanation(winner, voted, flexFlags, eliminatedCount, tiebreak, finalists[1]);
 
-  const scoringSheet = restaurants.map((r) => {
-    const row = rows.find((x) => x.r.id === r.id);
-    if (!row) {
+  const scoringSheet = restaurants
+    .map((r) => {
+      const row = rows.find((x) => x.r.id === r.id);
+      if (!row) {
+        return {
+          restaurantId: r.id,
+          name: r.name,
+          cuisineScore: 0,
+          priceScore: 0,
+          distanceScore: 0,
+          ratingScore: ratingScore(r),
+          meanUtility: 0,
+          minUtility: 0,
+          borda: 0,
+          total: 0,
+          eliminated: true,
+        };
+      }
+      const auditIndexes = countedIdx.length > 0 ? countedIdx : voted.map((_, index) => index);
+      const average = (component: (prefs: Prefs, restaurant: Restaurant) => number) =>
+        roundScore(
+          auditIndexes.reduce((sum, index) => sum + component(voted[index].prefs as Prefs, row.r), 0) /
+            Math.max(1, auditIndexes.length),
+        );
       return {
-        restaurantId: r.id, name: r.name, cuisineScore: 0, priceScore: 0,
-        distanceScore: 0, ratingScore: ratingScore(r), meanUtility: 0,
-        minUtility: 0, borda: 0, total: 0, eliminated: true,
+        restaurantId: r.id,
+        name: r.name,
+        cuisineScore: average(cuisineScore),
+        priceScore: average(priceScore),
+        distanceScore: average(distanceScore),
+        ratingScore: ratingScore(row.r),
+        meanUtility: row.mean,
+        minUtility: row.min,
+        borda: row.borda,
+        total: row.total,
+        eliminated: false,
       };
-    }
-    const auditIndexes = countedIdx.length > 0 ? countedIdx : voted.map((_, index) => index);
-    const average = (component: (prefs: Prefs, restaurant: Restaurant) => number) => roundScore(
-      auditIndexes.reduce((sum, index) => sum + component(voted[index].prefs as Prefs, row.r), 0)
-        / Math.max(1, auditIndexes.length),
-    );
-    return {
-      restaurantId: r.id,
-      name: r.name,
-      cuisineScore: average(cuisineScore),
-      priceScore: average(priceScore),
-      distanceScore: average(distanceScore),
-      ratingScore: ratingScore(row.r),
-      meanUtility: row.mean,
-      minUtility: row.min,
-      borda: row.borda,
-      total: row.total,
-      eliminated: false,
-    };
-  }).sort((a, b) => b.total - a.total || a.restaurantId.localeCompare(b.restaurantId));
+    })
+    .sort((a, b) => b.total - a.total || a.restaurantId.localeCompare(b.restaurantId));
 
   return {
     kind: 'match',
@@ -307,9 +312,11 @@ function buildExplanation(
     const tightest = Math.min(...counted.map((p) => (p.prefs as Prefs).budget));
     const who = counted.find((p) => (p.prefs as Prefs).budget === tightest);
     const label = '$'.repeat(Math.min(tightest, 4));
-    out.push(tightest >= 4
-      ? 'Budget was no object for anyone — price never hurt it'
-      : `Fits ${who?.nickname ?? 'everyone'}'s ${label} budget (max tier ${'$'.repeat(Math.min(maxBudget, 4))})`);
+    out.push(
+      tightest >= 4
+        ? 'Budget was no object for anyone — price never hurt it'
+        : `Fits ${who?.nickname ?? 'everyone'}'s ${label} budget (max tier ${'$'.repeat(Math.min(maxBudget, 4))})`,
+    );
   }
 
   // Distance
@@ -326,9 +333,7 @@ function buildExplanation(
   if (eliminatedCount > 0) {
     const descs = voted
       .map((p) => {
-        const enforced = (p.prefs as Prefs).dietary
-          .filter((d) => d.strict)
-          .map((d) => d.type);
+        const enforced = (p.prefs as Prefs).dietary.filter((d) => d.strict).map((d) => d.type);
         return enforced.length > 0 ? `${p.nickname}'s strict ${enforced.join(' + ')}` : null;
       })
       .filter((x): x is string => x !== null);
@@ -343,17 +348,14 @@ function buildExplanation(
   // Tie note
   if (tiebreak !== 'none' && runnerUp) {
     const how =
-      tiebreak === 'least-misery' ? 'least-misery (higher worst-case satisfaction)' :
-      tiebreak === 'copeland' ? 'pairwise head-to-head wins' :
-      'canonical restaurant ID';
+      tiebreak === 'least-misery'
+        ? 'least-misery (higher worst-case satisfaction)'
+        : tiebreak === 'copeland'
+          ? 'pairwise head-to-head wins'
+          : 'canonical restaurant ID';
     out.push(`Tied with ${runnerUp.restaurant.name} on score — tie broken by ${how}`);
   }
   return out.slice(0, 6);
-}
-
-/** Convenience: default prefs (all neutral, cheap, short walk, no dietary). */
-export function defaultPrefs(): Prefs {
-  return { cuisines: {}, budget: 1, maxDistanceKm: 1, dietary: [] };
 }
 
 export type { Prefs, Restaurant, Participant, VoteResult, Tiebreak };
